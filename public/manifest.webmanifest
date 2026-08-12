@@ -1,0 +1,11 @@
+{
+  "name": "아파요 지도",
+  "short_name": "아파요 지도",
+  "description": "지역별 위장관 증상 신고 증가를 살펴보는 시민 참여 지도",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f2e9",
+  "theme_color": "#f6f2e9",
+  "lang": "ko-KR",
+  "categories": ["health", "utilities"]
+}
