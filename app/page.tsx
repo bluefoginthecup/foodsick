@@ -30,7 +30,7 @@ export default function Home() {
           <a className="primary-button" href="#signals">
             주변 신호 보기
           </a>
-          <Link className="secondary-button" href="/login">
+          <Link className="secondary-button" href="/report">
             증상 신고하기
           </Link>
         </div>
@@ -53,7 +53,7 @@ export default function Home() {
 
       <footer className="site-footer">
         <p>의료 진단 서비스가 아닙니다. 심한 증상은 의료기관에 문의하세요.</p>
-        <span>체험 인증 · 3단계</span>
+        <span>신고 설문 · 4단계</span>
       </footer>
     </main>
   );

@@ -36,3 +36,16 @@ test("renders Kakao login without requesting profile data", async () => {
   assert.match(html, /프로필 이름·이메일을 요청하지 않아요/);
   assert.match(html, /체험 모드/);
 });
+
+test("keeps the report form behind authentication", async () => {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("report-test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  const response = await worker.fetch(new Request("http://localhost/report", { headers: { accept: "text/html" } }), {
+    ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
+  }, { waitUntil() {}, passThroughOnException() {} });
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /로그인이 필요해요/);
+  assert.match(html, /카카오 로그인을 먼저 해주세요/);
+});

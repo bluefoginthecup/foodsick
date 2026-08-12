@@ -34,3 +34,32 @@ export type IdentityState = {
   identityProvider: "pass" | "nice" | null;
   identityKey: string | null;
 };
+
+export type ReportDraft = {
+  mealDate: string;
+  mealTime: string;
+  province: string;
+  city: string;
+  district: string;
+  restaurantInternalId: string;
+  restaurantDisplayInput: string;
+  foodCategory: FoodCategory | "";
+  menu: string;
+  serviceMode: "dine_in" | "delivery" | "takeout" | "";
+  symptoms: string[];
+  diarrheaCount: number;
+  otherSymptom: string;
+  onsetDate: string;
+  onsetTime: string;
+  partyTotal: number;
+  partySymptomatic: number;
+  companionSymptoms: string[];
+  companionOnsetAt: string;
+  companionMedicalVisit: boolean;
+  companionTested: boolean;
+  medicalVisit: boolean;
+  hospitalized: boolean;
+  tested: boolean;
+  pathogenKnown: boolean;
+  pathogenType: string;
+};
