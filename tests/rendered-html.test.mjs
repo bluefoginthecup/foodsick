@@ -62,3 +62,16 @@ test("keeps my reports behind the same session identity", async () => {
   assert.match(html, /내 신고를 보려면/);
   assert.match(html, /먼저 로그인해주세요/);
 });
+
+test("keeps the administrator area behind a role claim", async () => {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("admin-test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  const response = await worker.fetch(new Request("http://localhost/admin", { headers: { accept: "text/html" } }), {
+    ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
+  }, { waitUntil() {}, passThroughOnException() {} });
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /관리자 권한이 필요합니다/);
+  assert.match(html, /Firebase custom claim/);
+});

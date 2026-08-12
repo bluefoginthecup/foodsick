@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import type { ReportDraft, ReportStatus } from "../contracts";
+import { canTransitionReport } from "../security/policy";
 
 export type StoredReport = {
   id: string;
@@ -14,6 +15,17 @@ export type StoredReport = {
   updatedAt: string;
 };
 
+export type AdminAuditEvent = {
+  id: string;
+  actorUid: string;
+  action: "report_status_changed";
+  reportId: string;
+  before: ReportStatus;
+  after: ReportStatus;
+  note: string;
+  createdAt: string;
+};
+
 type CreateResult =
   | { kind: "created"; report: StoredReport }
   | { kind: "duplicate"; report: StoredReport };
@@ -23,6 +35,8 @@ type ReportStoreValue = {
   createReport: (ownerUid: string, draft: ReportDraft) => CreateResult;
   updateReport: (reportId: string, ownerUid: string, draft: ReportDraft) => StoredReport | null;
   getReport: (reportId: string) => StoredReport | undefined;
+  auditEvents: AdminAuditEvent[];
+  setReportStatus: (actorUid: string, reportId: string, status: ReportStatus, note: string) => boolean;
 };
 
 const ReportStore = createContext<ReportStoreValue | null>(null);
@@ -41,9 +55,11 @@ function calculateIncubationMinutes(draft: ReportDraft) {
 
 export function ReportStoreProvider({ children }: { children: ReactNode }) {
   const [reports, setReports] = useState<StoredReport[]>([]);
+  const [auditEvents, setAuditEvents] = useState<AdminAuditEvent[]>([]);
 
   const value = useMemo<ReportStoreValue>(() => ({
     reports,
+    auditEvents,
     createReport(ownerUid, draft) {
       const dedupeKey = makeDedupeKey(ownerUid, draft.restaurantInternalId, draft.mealDate);
       const duplicate = reports.find((report) => report.dedupeKey === dedupeKey && report.status !== "rejected");
@@ -81,7 +97,23 @@ export function ReportStoreProvider({ children }: { children: ReactNode }) {
     getReport(reportId) {
       return reports.find((report) => report.id === reportId);
     },
-  }), [reports]);
+    setReportStatus(actorUid, reportId, status, note) {
+      const report = reports.find((item) => item.id === reportId);
+      if (!report || !canTransitionReport(report.status, status)) return false;
+      setReports((current) => current.map((item) => item.id === reportId ? { ...item, status, updatedAt: new Date().toISOString() } : item));
+      setAuditEvents((current) => [{
+        id: `audit_${Date.now()}`,
+        actorUid,
+        action: "report_status_changed",
+        reportId,
+        before: report.status,
+        after: status,
+        note,
+        createdAt: new Date().toISOString(),
+      }, ...current]);
+      return true;
+    },
+  }), [auditEvents, reports]);
 
   return <ReportStore.Provider value={value}>{children}</ReportStore.Provider>;
 }

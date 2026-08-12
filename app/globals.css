@@ -134,6 +134,7 @@ button { color: inherit; }
 .demo-notice { margin: 14px 3px 0; color: var(--muted); font-size: 10px; line-height: 1.55; text-align: center; }
 .logged-in-panel { display: grid; gap: 12px; padding: 18px; color: var(--forest-dark); background: var(--mint); border-radius: 18px; text-align: center; }
 .logged-in-panel .secondary-button { width: 100%; background: rgba(255,255,255,.58); cursor: pointer; }
+.admin-demo-button { width: 100%; margin-top: 9px; padding: 11px; color: var(--forest); background: transparent; border: 1px dashed #8eb09b; border-radius: 13px; font-size: 11px; font-weight: 800; cursor: pointer; }
 
 .report-page { width: min(100%, 720px); min-height: 100vh; margin: 0 auto; padding: 0 20px 52px; }
 .report-header { display: flex; align-items: center; justify-content: space-between; min-height: 64px; border-bottom: 1px solid var(--line); }
@@ -245,6 +246,57 @@ button { color: inherit; }
 .my-report-card dd { margin: 0; font-size: 10px; text-align: right; }
 .edit-report { display: grid; place-items: center; min-height: 42px; margin-top: 12px; color: var(--forest); border: 1px solid var(--forest); border-radius: 12px; font-size: 11px; font-weight: 800; text-decoration: none; }
 
+.admin-gate { width: min(100%, 600px); min-height: 100vh; margin: 0 auto; padding: 90px 22px; text-align: center; }
+.admin-gate > span { display: grid; place-items: center; width: 72px; height: 72px; margin: 0 auto 25px; color: white; background: var(--forest-dark); border-radius: 24px; font-size: 18px; font-weight: 900; }
+.admin-gate h1 { margin: 0; font-size: clamp(34px, 8vw, 52px); letter-spacing: -.06em; }
+.admin-gate p { margin: 18px auto 26px; color: var(--muted); line-height: 1.65; }
+.admin-page { width: min(100%, 1040px); min-height: 100vh; margin: 0 auto; padding: 0 18px 60px; }
+.admin-topbar { display: flex; align-items: center; justify-content: space-between; min-height: 68px; border-bottom: 1px solid var(--line); }
+.admin-topbar > div { display: flex; align-items: center; gap: 9px; }
+.admin-mark { display: grid; place-items: center; width: 32px; height: 32px; color: white; background: var(--forest-dark); border-radius: 10px; font-size: 12px; font-weight: 900; }
+.admin-topbar strong { font-size: 13px; }
+.admin-topbar a { color: var(--forest); font-size: 11px; font-weight: 800; }
+.admin-heading { padding: 46px 0 26px; }
+.admin-heading h1 { margin: 0; font-size: clamp(45px, 10vw, 76px); letter-spacing: -.075em; }
+.admin-heading > p:last-child { color: var(--muted); font-size: 12px; }
+.admin-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.admin-stats div { position: relative; padding: 16px; background: white; border: 1px solid var(--line); border-radius: 17px; }
+.admin-stats span { display: block; color: var(--muted); font-size: 9px; }
+.admin-stats strong { color: var(--forest-dark); font-size: 29px; }
+.admin-stats small { margin-left: 2px; color: var(--muted); font-size: 9px; }
+.admin-tabs { display: flex; gap: 5px; margin: 24px 0 12px; padding: 4px; background: var(--paper-deep); border-radius: 14px; }
+.admin-tabs button { flex: 1; min-height: 40px; color: var(--muted); background: transparent; border: 0; border-radius: 11px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.admin-tabs button.active { color: var(--forest-dark); background: white; box-shadow: 0 3px 10px rgba(32,41,37,.07); }
+.admin-list { display: grid; gap: 8px; }
+.admin-report-card { display: grid; gap: 14px; padding: 17px; background: rgba(255,255,255,.74); border: 1px solid var(--line); border-radius: 18px; }
+.admin-report-main h2 { margin: 10px 0 3px; font-size: 16px; }
+.admin-report-main p { margin: 0 0 8px; color: var(--muted); font-size: 10px; }
+.admin-report-main small { color: var(--forest); font-size: 10px; }
+.admin-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.admin-actions button { min-height: 38px; color: white; background: var(--forest); border: 0; border-radius: 11px; font-size: 10px; font-weight: 800; cursor: pointer; }
+.admin-actions button.reject { color: #873924; background: #ffe1d8; }
+.demo-only { align-self: center; color: var(--muted); font-size: 9px; font-weight: 800; }
+.cluster-review-card { padding: 22px; background: white; border: 1px solid var(--line); border-radius: 20px; }
+.cluster-review-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cluster-review-head span { padding: 6px 8px; color: #843824; background: #ffe1d8; border-radius: 999px; font-size: 8px; font-weight: 800; }
+.cluster-review-head strong { color: var(--forest); font-size: 10px; }
+.cluster-review-card h2 { margin: 18px 0 4px; font-size: 21px; }
+.cluster-review-card > p { color: var(--muted); font-size: 10px; }
+.cluster-review-card dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.cluster-review-card dl div { padding: 13px 7px; background: #f3f4ee; border-radius: 12px; text-align: center; }
+.cluster-review-card dt { color: var(--muted); font-size: 8px; }
+.cluster-review-card dd { margin: 4px 0 0; color: var(--forest-dark); font-size: 17px; font-weight: 900; }
+.privacy-check { display: grid; gap: 4px; margin-top: 15px; padding: 14px; color: var(--forest-dark); background: var(--mint); border-radius: 13px; }
+.privacy-check strong { font-size: 10px; }
+.privacy-check span { font-size: 9px; }
+.official-warning { padding: 12px; color: #7e3524 !important; background: #ffe1d8; border-radius: 11px; line-height: 1.45; }
+.audit-list { display: grid; gap: 8px; }
+.audit-list > p { padding: 30px; color: var(--muted); background: white; border-radius: 18px; text-align: center; font-size: 11px; }
+.audit-list article { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 14px; background: white; border-radius: 14px; }
+.audit-list strong { font-size: 11px; }
+.audit-list span { grid-row: 2; color: var(--muted); font-size: 9px; }
+.audit-list time { grid-column: 2; grid-row: 1 / 3; align-self: center; color: var(--muted); font-size: 8px; }
+
 @media (min-width: 700px) {
   .app-shell { padding-inline: 32px; }
   .hero { padding-top: 86px; }
@@ -258,6 +310,9 @@ button { color: inherit; }
   .report-page { padding-inline: 28px; }
   .toggle-grid { grid-template-columns: repeat(4, 1fr); }
   .medical-grid { grid-template-columns: 1fr 1fr; }
+  .admin-stats { grid-template-columns: repeat(4, 1fr); }
+  .admin-report-card { grid-template-columns: 1fr auto; align-items: center; }
+  .admin-actions { width: 190px; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }

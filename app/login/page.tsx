@@ -6,7 +6,7 @@ import { useAuth } from "../auth/auth-context";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loginForDemo, logout } = useAuth();
+  const { user, loginForDemo, loginAsAdminForDemo, logout } = useAuth();
 
   const handleLogin = () => {
     loginForDemo();
@@ -37,6 +37,11 @@ export default function LoginPage() {
         ) : (
           <button className="kakao-button" onClick={handleLogin} type="button">
             <span aria-hidden="true">●</span> 카카오로 시작하기
+          </button>
+        )}
+        {!user && (
+          <button className="admin-demo-button" onClick={() => { loginAsAdminForDemo(); router.push("/admin"); }} type="button">
+            관리자 화면 체험하기
           </button>
         )}
         <p className="demo-notice">

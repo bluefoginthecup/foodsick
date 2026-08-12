@@ -9,11 +9,13 @@ export type SessionUser = {
   identityProvider: null;
   identityKey: null;
   mode: "mock";
+  role: "user" | "admin";
 };
 
 type AuthContextValue = {
   user: SessionUser | null;
   loginForDemo: () => void;
+  loginAsAdminForDemo: () => void;
   logout: () => void;
 };
 
@@ -30,6 +32,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       identityProvider: null,
       identityKey: null,
       mode: "mock",
+      role: "user",
+    }),
+    loginAsAdminForDemo: () => setUser({
+      uid: "mock-admin-user",
+      provider: "kakao",
+      identityVerified: false,
+      identityProvider: null,
+      identityKey: null,
+      mode: "mock",
+      role: "admin",
     }),
     logout: () => setUser(null),
   }), [user]);
