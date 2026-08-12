@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "./auth/auth-context";
+import { ReportStoreProvider } from "./reports/report-store";
 
 export const metadata: Metadata = {
   title: "아파요 지도 | 위장관 증상 조기 신호",
@@ -25,7 +26,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko">
-      <body><AuthProvider>{children}</AuthProvider></body>
+      <body><AuthProvider><ReportStoreProvider>{children}</ReportStoreProvider></AuthProvider></body>
     </html>
   );
 }

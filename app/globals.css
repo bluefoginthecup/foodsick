@@ -45,6 +45,7 @@ button { color: inherit; }
 .prototype-badge { padding: 7px 10px; color: var(--forest-dark); background: var(--mint); border-radius: 999px; font-size: 12px; font-weight: 750; }
 .login-link { padding: 9px 12px; color: var(--forest-dark); background: var(--mint); border-radius: 999px; font-size: 12px; font-weight: 800; text-decoration: none; }
 .session-control { display: flex; align-items: center; gap: 8px; }
+.session-control > a { color: var(--forest); font-size: 11px; font-weight: 800; text-decoration: none; }
 .session-control span { display: inline-flex; align-items: center; gap: 6px; color: var(--forest-dark); font-size: 11px; font-weight: 750; }
 .session-control i { width: 7px; height: 7px; background: #78a46e; border-radius: 50%; }
 .session-control button { padding: 7px 9px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 9px; font-size: 10px; cursor: pointer; }
@@ -190,7 +191,8 @@ button { color: inherit; }
 .consent-check { grid-template-columns: 20px 1fr; align-items: start; padding: 16px; background: #f0eee7; border-radius: 16px; font-weight: 650 !important; line-height: 1.55; }
 .consent-check input { min-height: auto; margin-top: 2px; }
 .consent-check small { display: block; margin-top: 4px; color: var(--muted); }
-.submit-preview { width: 100%; min-height: 54px; color: white; background: var(--forest); border: 0; border-radius: 16px; font-weight: 850; opacity: .5; }
+.submit-preview { width: 100%; min-height: 54px; color: white; background: var(--forest); border: 0; border-radius: 16px; font-weight: 850; cursor: pointer; }
+.submit-preview:disabled { opacity: .38; cursor: not-allowed; }
 .wizard-actions { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--line); }
 .wizard-actions button { cursor: pointer; }
 .wizard-actions button:disabled { opacity: .35; cursor: not-allowed; }
@@ -202,6 +204,41 @@ button { color: inherit; }
 .auth-gate > p:not(.eyebrow) { margin: 20px auto 28px; color: var(--muted); line-height: 1.6; }
 .auth-gate .kakao-button { text-decoration: none; }
 .text-link { display: inline-flex; margin-top: 18px; color: var(--muted); font-size: 12px; font-weight: 750; }
+.duplicate-banner { display: grid; gap: 4px; margin: 0 0 24px; padding: 16px; color: #793421; background: #ffe0d7; border: 1px solid #f2ae9c; border-radius: 15px; }
+.duplicate-banner strong { font-size: 13px; }
+.duplicate-banner span { font-size: 11px; line-height: 1.5; }
+.completion-page { width: min(100%, 620px); min-height: 100vh; margin: 0 auto; padding: 82px 22px 50px; text-align: center; }
+.completion-mark { display: grid; place-items: center; width: 70px; height: 70px; margin: 0 auto 28px; color: white; background: var(--forest); border-radius: 25px 25px 25px 8px; font-size: 29px; font-weight: 900; box-shadow: 0 14px 28px rgba(29,89,70,.22); }
+.completion-page h1 { margin: 0; font-size: clamp(36px, 9vw, 58px); line-height: 1.08; letter-spacing: -.06em; }
+.completion-page > p:not(.eyebrow) { margin: 20px auto 28px; color: var(--muted); line-height: 1.7; word-break: keep-all; }
+.completion-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 22px; }
+.completion-summary div { display: grid; gap: 5px; padding: 18px 10px; background: white; border: 1px solid var(--line); border-radius: 16px; }
+.completion-summary span { color: var(--muted); font-size: 10px; }
+.completion-summary strong { color: var(--forest); font-size: 21px; }
+
+.my-reports-page { width: min(100%, 720px); min-height: 100vh; margin: 0 auto; padding: 0 20px 52px; }
+.small-action { padding: 8px 11px; color: white; background: var(--forest); border-radius: 10px; font-size: 11px; font-weight: 800; text-decoration: none; }
+.my-reports-heading { padding: 46px 0 26px; }
+.my-reports-heading h1 { margin: 0; font-size: clamp(45px, 11vw, 72px); letter-spacing: -.07em; }
+.my-reports-heading > p:last-child { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.empty-reports { display: grid; justify-items: center; gap: 13px; padding: 52px 22px; background: rgba(255,255,255,.58); border: 1px solid var(--line); border-radius: 26px; text-align: center; }
+.empty-reports > span { display: grid; place-items: center; width: 52px; height: 52px; color: var(--forest); background: var(--mint); border-radius: 50%; font-size: 24px; }
+.empty-reports h1, .empty-reports h2 { margin: 0; letter-spacing: -.04em; }
+.empty-reports p { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+.empty-reports .primary-button, .empty-reports .kakao-button { width: 100%; }
+.report-list { display: grid; gap: 12px; }
+.my-report-card { padding: 20px; background: rgba(255,255,255,.78); border: 1px solid var(--line); border-radius: 21px; box-shadow: 0 8px 26px rgba(28,50,42,.06); }
+.my-report-topline { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.my-report-topline time { color: var(--muted); font-size: 9px; }
+.report-status { padding: 6px 8px; color: var(--forest-dark); background: var(--mint); border-radius: 999px; font-size: 9px; font-weight: 850; }
+.my-report-card h2 { margin: 14px 0 8px; font-size: 18px; letter-spacing: -.03em; }
+.private-restaurant { display: flex; align-items: center; gap: 7px; margin: 0 0 16px; color: var(--muted); font-size: 12px; }
+.private-restaurant span { padding: 3px 6px; color: #8c3d2a; background: #ffe2da; border-radius: 6px; font-size: 8px; font-weight: 800; }
+.my-report-card dl { display: grid; gap: 7px; margin: 0; padding: 13px; background: #f5f4ee; border-radius: 13px; }
+.my-report-card dl div { display: grid; grid-template-columns: 70px 1fr; gap: 8px; }
+.my-report-card dt { color: var(--muted); font-size: 9px; }
+.my-report-card dd { margin: 0; font-size: 10px; text-align: right; }
+.edit-report { display: grid; place-items: center; min-height: 42px; margin-top: 12px; color: var(--forest); border: 1px solid var(--forest); border-radius: 12px; font-size: 11px; font-weight: 800; text-decoration: none; }
 
 @media (min-width: 700px) {
   .app-shell { padding-inline: 32px; }

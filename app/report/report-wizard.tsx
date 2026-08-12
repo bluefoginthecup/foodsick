@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { FOOD_CATEGORIES, type ReportDraft } from "../contracts";
 import { useAuth } from "../auth/auth-context";
 import { findRestaurantCandidates, restaurantCandidates } from "./restaurant-matcher";
+import { useReports, type StoredReport } from "../reports/report-store";
 
 const symptomOptions = ["설사", "구토", "복통", "발열", "오한", "혈변", "두통", "근육통"];
 const steps = ["식사", "증상", "동행", "의료·확인"];
@@ -97,8 +99,17 @@ function calculateIncubation(draft: ReportDraft) {
 
 export function ReportWizard() {
   const { user } = useAuth();
-  const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState(initialDraft);
+  const { createReport, getReport, updateReport } = useReports();
+  const searchParams = useSearchParams();
+  const requestedEditId = searchParams.get("edit");
+  const requestedReport = requestedEditId ? getReport(requestedEditId) : undefined;
+  const editableReport = requestedReport?.ownerUid === user?.uid ? requestedReport : undefined;
+  const [step, setStep] = useState(editableReport ? 3 : 0);
+  const [draft, setDraft] = useState<ReportDraft>(() => editableReport ? structuredClone(editableReport.draft) : initialDraft);
+  const [editingId, setEditingId] = useState<string | null>(editableReport?.id ?? null);
+  const [consented, setConsented] = useState(false);
+  const [duplicateNotice, setDuplicateNotice] = useState(false);
+  const [completedReport, setCompletedReport] = useState<StoredReport | null>(null);
   const candidates = useMemo(() => findRestaurantCandidates(draft.restaurantDisplayInput), [draft.restaurantDisplayInput]);
   const incubation = calculateIncubation(draft);
 
@@ -119,6 +130,23 @@ export function ReportWizard() {
     );
   }
 
+  if (completedReport) {
+    return (
+      <main className="completion-page">
+        <span className="completion-mark" aria-hidden="true">✓</span>
+        <p className="eyebrow">신고 완료</p>
+        <h1>{editingId ? "신고를 수정했어요" : "소중한 신호를 보탰어요"}</h1>
+        <p>제출한 내용은 업소 공개나 진단에 사용되지 않으며, 비식별 집계 기준을 충족할 때만 공개 신호에 반영됩니다.</p>
+        <div className="completion-summary">
+          <div><span>독립 신고</span><strong>1건</strong></div>
+          <div><span>동행 증상자</span><strong>{completedReport.draft.partySymptomatic}명</strong></div>
+        </div>
+        <Link className="primary-button" href="/my-reports">내 신고 확인</Link>
+        <Link className="text-link" href="/">공개 지도로 돌아가기</Link>
+      </main>
+    );
+  }
+
   return (
     <main className="report-page">
       <header className="report-header">
@@ -136,6 +164,12 @@ export function ReportWizard() {
       </ol>
 
       <form className="report-form" onSubmit={(event) => event.preventDefault()}>
+        {duplicateNotice && (
+          <div className="duplicate-banner" role="alert">
+            <strong>이미 같은 식사 신고가 있어요.</strong>
+            <span>새 신고 대신 기존 내용을 불러왔습니다. 확인 후 수정해주세요.</span>
+          </div>
+        )}
         {step === 0 && (
           <section className="form-step" aria-labelledby="meal-title">
             <p className="eyebrow">1 · 식사 정보</p>
@@ -281,8 +315,30 @@ export function ReportWizard() {
               <div><span>잠복시간</span><strong>{incubation ?? "계산 전"}</strong></div>
               <div><span>인원 집계</span><strong>독립 1건 · 동행 {draft.partySymptomatic}명</strong></div>
             </div>
-            <label className="consent-check"><input type="checkbox" /> <span>건강 관련 정보가 민감정보임을 확인했으며, 신고 분석 목적으로 처리하는 데 동의합니다. <small>실제 운영 전 동의문과 보유기간을 법률 검토합니다.</small></span></label>
-            <button className="submit-preview" disabled type="button">5단계에서 안전하게 제출 연결</button>
+            <label className="consent-check"><input checked={consented} onChange={(event) => setConsented(event.target.checked)} type="checkbox" /> <span>건강 관련 정보가 민감정보임을 확인했으며, 신고 분석 목적으로 처리하는 데 동의합니다. <small>실제 운영 전 동의문과 보유기간을 법률 검토합니다.</small></span></label>
+            <button
+              className="submit-preview"
+              disabled={!consented || !draft.restaurantInternalId || !draft.mealDate || !draft.mealTime || draft.symptoms.length === 0}
+              onClick={() => {
+                if (editingId) {
+                  const updated = updateReport(editingId, user.uid, draft);
+                  if (updated) setCompletedReport(updated);
+                  return;
+                }
+                const result = createReport(user.uid, draft);
+                if (result.kind === "duplicate") {
+                  setDraft(structuredClone(result.report.draft));
+                  setEditingId(result.report.id);
+                  setDuplicateNotice(true);
+                  setConsented(false);
+                  return;
+                }
+                setCompletedReport(result.report);
+              }}
+              type="button"
+            >
+              {editingId ? "기존 신고 수정하기" : "증상 신고 제출하기"}
+            </button>
           </section>
         )}
 
