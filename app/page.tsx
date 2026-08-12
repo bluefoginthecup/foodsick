@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SignalMap } from "./signal-map";
 
 const foundations = [
   "음식점 이름과 정확한 위치는 공개하지 않아요",
@@ -25,23 +26,16 @@ export default function Home() {
           외식 후 겪은 증상을 안전하게 알려주세요.
         </p>
         <div className="hero-actions">
-          <button className="primary-button" type="button" disabled>
+          <a className="primary-button" href="#signals">
             주변 신호 보기
-          </button>
+          </a>
           <button className="secondary-button" type="button" disabled>
             증상 신고하기
           </button>
         </div>
       </section>
 
-      <section className="map-skeleton" aria-label="공개 지도 준비 화면">
-        <div className="map-grid" aria-hidden="true" />
-        <div className="map-message">
-          <span className="map-pulse" aria-hidden="true" />
-          <strong>비식별 공개 지도를 준비하고 있어요</strong>
-          <span>다음 단계에서 지역별 신호가 표시됩니다.</span>
-        </div>
-      </section>
+      <div id="signals"><SignalMap /></div>
 
       <section className="trust-panel" aria-labelledby="trust-title">
         <p className="eyebrow">처음부터 지키는 원칙</p>
@@ -58,7 +52,7 @@ export default function Home() {
 
       <footer className="site-footer">
         <p>의료 진단 서비스가 아닙니다. 심한 증상은 의료기관에 문의하세요.</p>
-        <span>기반 구조 · 1단계</span>
+        <span>공개 신호 지도 · 2단계</span>
       </footer>
     </main>
   );
