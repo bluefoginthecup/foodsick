@@ -43,6 +43,11 @@ button { color: inherit; }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; font-weight: 800; }
 .brand-mark { display: grid; place-items: center; width: 34px; height: 34px; color: white; background: var(--forest); border-radius: 12px 12px 12px 4px; }
 .prototype-badge { padding: 7px 10px; color: var(--forest-dark); background: var(--mint); border-radius: 999px; font-size: 12px; font-weight: 750; }
+.login-link { padding: 9px 12px; color: var(--forest-dark); background: var(--mint); border-radius: 999px; font-size: 12px; font-weight: 800; text-decoration: none; }
+.session-control { display: flex; align-items: center; gap: 8px; }
+.session-control span { display: inline-flex; align-items: center; gap: 6px; color: var(--forest-dark); font-size: 11px; font-weight: 750; }
+.session-control i { width: 7px; height: 7px; background: #78a46e; border-radius: 50%; }
+.session-control button { padding: 7px 9px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 9px; font-size: 10px; cursor: pointer; }
 
 .hero { padding: 62px 0 32px; }
 .eyebrow { margin: 0 0 10px; color: var(--coral); font-size: 12px; font-weight: 850; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -109,6 +114,21 @@ button { color: inherit; }
 .site-footer { display: flex; flex-direction: column; gap: 10px; padding: 26px 2px 0; color: var(--muted); font-size: 12px; }
 .site-footer p { margin: 0; }
 
+.narrow-page { width: min(100%, 620px); min-height: 100vh; margin: 0 auto; padding: 24px 20px 48px; }
+.back-link { display: inline-flex; margin: 6px 0 28px; color: var(--forest); font-size: 13px; font-weight: 800; text-decoration: none; }
+.login-card { padding: 30px 22px; background: rgba(255,255,255,.7); border: 1px solid var(--line); border-radius: 30px; box-shadow: var(--shadow); }
+.kakao-symbol { display: grid; place-items: center; width: 54px; height: 54px; margin-bottom: 26px; color: #2c241f; background: #fee500; border-radius: 19px 19px 19px 7px; font-size: 22px; font-weight: 950; }
+.login-card h1 { margin: 0; font-size: clamp(34px, 9vw, 56px); line-height: 1.1; letter-spacing: -.065em; }
+.login-copy { margin: 22px 0 0; color: var(--muted); font-size: 15px; line-height: 1.75; word-break: keep-all; }
+.privacy-list { display: grid; gap: 11px; margin: 24px 0; padding: 18px; background: #f2f3ec; border-radius: 18px; list-style: none; }
+.privacy-list li { position: relative; padding-left: 18px; color: #4f5d57; font-size: 13px; line-height: 1.5; }
+.privacy-list li::before { content: "✓"; position: absolute; left: 0; color: var(--forest); font-weight: 900; }
+.kakao-button { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; min-height: 55px; background: #fee500; border: 0; border-radius: 16px; color: #211d1a; font-weight: 850; cursor: pointer; }
+.kakao-button span { font-size: 8px; }
+.demo-notice { margin: 14px 3px 0; color: var(--muted); font-size: 10px; line-height: 1.55; text-align: center; }
+.logged-in-panel { display: grid; gap: 12px; padding: 18px; color: var(--forest-dark); background: var(--mint); border-radius: 18px; text-align: center; }
+.logged-in-panel .secondary-button { width: 100%; background: rgba(255,255,255,.58); cursor: pointer; }
+
 @media (min-width: 700px) {
   .app-shell { padding-inline: 32px; }
   .hero { padding-top: 86px; }
@@ -118,6 +138,7 @@ button { color: inherit; }
   .trust-panel { padding: 42px; }
   .trust-panel ul { grid-template-columns: repeat(3, 1fr); }
   .site-footer { flex-direction: row; justify-content: space-between; }
+  .login-card { padding: 46px; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }

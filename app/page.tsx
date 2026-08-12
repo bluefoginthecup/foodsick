@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SignalMap } from "./signal-map";
+import { SessionControl } from "./auth/session-control";
 
 const foundations = [
   "음식점 이름과 정확한 위치는 공개하지 않아요",
@@ -15,7 +16,7 @@ export default function Home() {
           <span className="brand-mark" aria-hidden="true">아</span>
           <span>아파요 지도</span>
         </Link>
-        <span className="prototype-badge">MVP 준비 중</span>
+        <SessionControl />
       </header>
 
       <section className="hero" aria-labelledby="hero-title">
@@ -29,9 +30,9 @@ export default function Home() {
           <a className="primary-button" href="#signals">
             주변 신호 보기
           </a>
-          <button className="secondary-button" type="button" disabled>
+          <Link className="secondary-button" href="/login">
             증상 신고하기
-          </button>
+          </Link>
         </div>
       </section>
 
@@ -52,7 +53,7 @@ export default function Home() {
 
       <footer className="site-footer">
         <p>의료 진단 서비스가 아닙니다. 심한 증상은 의료기관에 문의하세요.</p>
-        <span>공개 신호 지도 · 2단계</span>
+        <span>체험 인증 · 3단계</span>
       </footer>
     </main>
   );
