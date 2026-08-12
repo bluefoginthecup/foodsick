@@ -12,6 +12,8 @@ export type PublicSignal = {
   position: { x: number; y: number };
   trend: "steady" | "increased";
   privacyLevel: "dong" | "gu" | "city";
+  privacyPolicyVersion: "privacy-v1";
+  regionAdjusted: boolean;
 };
 
 export const publicSignals: PublicSignal[] = [
@@ -27,6 +29,8 @@ export const publicSignals: PublicSignal[] = [
     position: { x: 62, y: 42 },
     trend: "increased",
     privacyLevel: "dong",
+    privacyPolicyVersion: "privacy-v1",
+    regionAdjusted: false,
   },
   {
     id: "signal-suwon-korean",
@@ -40,6 +44,8 @@ export const publicSignals: PublicSignal[] = [
     position: { x: 35, y: 62 },
     trend: "increased",
     privacyLevel: "gu",
+    privacyPolicyVersion: "privacy-v1",
+    regionAdjusted: true,
   },
   {
     id: "signal-seongnam-delivery",
@@ -53,5 +59,7 @@ export const publicSignals: PublicSignal[] = [
     position: { x: 46, y: 25 },
     trend: "steady",
     privacyLevel: "gu",
+    privacyPolicyVersion: "privacy-v1",
+    regionAdjusted: true,
   },
 ];

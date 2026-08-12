@@ -53,7 +53,7 @@ export default function Home() {
 
       <footer className="site-footer">
         <p>의료 진단 서비스가 아닙니다. 심한 증상은 의료기관에 문의하세요.</p>
-        <span>신고 설문 · 4단계</span>
+        <span>비식별 집계 · 6단계</span>
       </footer>
     </main>
   );

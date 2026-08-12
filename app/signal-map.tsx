@@ -12,7 +12,7 @@ function SignalCard({ signal }: { signal: PublicSignal }) {
       <div className="signal-card-heading">
         <div>
           <span className="privacy-label">
-            {signal.privacyLevel === "dong" ? "동 단위 공개" : "넓혀서 공개"}
+            {signal.regionAdjusted ? "재식별 방지를 위해 넓혀서 공개" : "공개 기준 충족"}
           </span>
           <h3>{signal.region}</h3>
           <p>{signal.category} 유형 · 최근 {signal.windowHours}시간</p>
@@ -123,6 +123,14 @@ export function SignalMap() {
         <span aria-hidden="true">◎</span>
         핀은 음식점 좌표가 아닌 공개 가능한 행정구역 중심을 나타냅니다.
       </p>
+      <details className="privacy-explainer">
+        <summary>어떤 신호가 지도에 공개되나요?</summary>
+        <div>
+          <p><strong>서로 다른 계정 3명 이상</strong>이 비슷한 시간대와 증상으로 신고한 후보만 검토합니다.</p>
+          <p>같은 음식 유형의 업소가 적으면 <strong>동 → 구 → 시</strong> 순서로 지역을 넓혀 특정 업소를 추측하기 어렵게 만듭니다.</p>
+          <p>동행 증상자는 독립 신고 건수에 포함하지 않으며, 작은 세부 수치는 숨길 수 있습니다.</p>
+        </div>
+      </details>
     </section>
   );
 }
