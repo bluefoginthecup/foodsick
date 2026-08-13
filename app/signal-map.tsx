@@ -4,7 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import type { AdmFeature, EmdProperties, SggProperties, SidoProperties } from "admdongkor";
 import { FOOD_CATEGORIES, type FoodCategory } from "./contracts";
 import { publicSignals, SIGNAL_DATA_END, SIGNAL_DATA_START, type PublicSignal } from "./mock-signals";
-import { contactsForRegion, phoneHref } from "./regional-contacts";
+import {
+  phoneHref,
+  type RegionSelection,
+  type RegionalContactsError,
+  type RegionalContactsResponse,
+} from "./regional-contacts";
 
 type MapLevel = "sido" | "city" | "district" | "dong";
 type BoundaryFeature = AdmFeature<SidoProperties | SggProperties | EmdProperties>;
@@ -13,31 +18,61 @@ type BoundaryData = {
   sgg: AdmFeature<SggProperties>[];
   emd: AdmFeature<EmdProperties>[];
 };
-type RegionSelection = { sido: string; city: string; district: string; dong: string };
 type RegionShape = { id: string; name: string; features: BoundaryFeature[]; signalCount: number };
 
 const EMPTY_SELECTION: RegionSelection = { sido: "", city: "", district: "", dong: "" };
-
-function searchUrl(query: string) {
-  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-}
 
 function mapSearchUrl(query: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
-function RegionalHelp({ region }: { region: string }) {
-  const contactDirectory = contactsForRegion(region);
-  const governmentLinks = [
-    { label: "시청 연락처", query: `${region} 관할 시청 대표전화 공식` },
-    { label: "구청 연락처", query: `${region} 관할 구청 대표전화 공식` },
-    { label: "보건소 연락처", query: `${region} 관할 보건소 대표전화 공식` },
-  ];
+type ContactState =
+  | { status: "idle" | "loading"; data: null; message: string }
+  | { status: "loaded"; data: RegionalContactsResponse; message: string }
+  | { status: "error"; data: null; message: string };
+
+function RegionalHelp({ region, selection }: { region: string; selection: RegionSelection }) {
+  const { sido, city, district, dong } = selection;
+  const [contactState, setContactState] = useState<ContactState>({
+    status: "idle",
+    data: null,
+    message: "시·군·구를 선택하면 최신 연락처를 조회합니다.",
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
   const medicalLinks = [
     { label: "대학병원 찾기", query: `${region} 대학병원` },
     { label: "응급실 찾기", query: `${region} 응급실` },
     { label: "내과 찾기", query: `${region} 내과` },
   ];
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!sido || !city) return () => controller.abort();
+    const params = new URLSearchParams({ sido, city, district, dong });
+    queueMicrotask(() => {
+      if (!controller.signal.aborted) setContactState({ status: "loading", data: null, message: "API에서 최신 연락처를 불러오는 중입니다." });
+    });
+    void fetch(`/api/regional-contacts?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    }).then(async (response) => {
+      const payload = await response.json() as RegionalContactsResponse | RegionalContactsError;
+      if (!response.ok || "error" in payload) throw new Error("message" in payload ? payload.message : "연락처를 불러오지 못했습니다.");
+      setContactState({ status: "loaded", data: payload, message: "" });
+    }).catch((error: unknown) => {
+      if (controller.signal.aborted) return;
+      setContactState({
+        status: "error",
+        data: null,
+        message: error instanceof Error ? error.message : "최신 연락처를 불러오지 못했습니다.",
+      });
+    });
+    return () => controller.abort();
+  }, [city, district, dong, refreshKey, sido]);
+
+  const fetchedLabel = contactState.status === "loaded"
+    ? `${new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(contactState.data.fetchedAt))} API 조회`
+    : contactState.status === "loading" ? "API 조회 중" : "지역 선택 후 자동 조회";
 
   return (
     <aside className="regional-help" aria-labelledby="regional-help-title">
@@ -49,42 +84,34 @@ function RegionalHelp({ region }: { region: string }) {
         <span>{region}</span>
       </div>
 
-      {contactDirectory ? (
-        <section className="food-safety-contacts" aria-labelledby="government-links-title">
-          <div className="contact-section-heading">
-            <div><span aria-hidden="true">!</span><h4 id="government-links-title">식중독 신고·문의</h4></div>
-            <small>{contactDirectory.verifiedAt.replaceAll("-", ".")} 공식 정보 확인</small>
-          </div>
+      <section className="food-safety-contacts" aria-labelledby="government-links-title">
+        <div className="contact-section-heading">
+          <div><span aria-hidden="true">!</span><h4 id="government-links-title">식중독 신고·문의</h4></div>
+          <small>{fetchedLabel}</small>
+        </div>
+        {contactState.status === "loaded" && contactState.data.contacts.length > 0 ? (
           <div className="contact-card-grid">
-            {contactDirectory.contacts.map((contact) => (
+            {contactState.data.contacts.map((contact) => (
               <article className={`contact-card ${contact.kind}`} key={`${contact.kind}-${contact.phone}`}>
                 <span className="contact-kind">{contact.label}</span>
                 <strong>{contact.name}</strong>
-                <p>{contact.description}</p>
+                <p>{contact.address}</p>
                 <div>
                   <a className="contact-phone" href={phoneHref(contact.phone)}><span aria-hidden="true">☎</span>{contact.phone}</a>
-                  <a className="contact-source" href={contact.sourceUrl} rel="noreferrer" target="_blank">공식 출처 ↗</a>
+                  <a className="contact-source" href={contact.sourceUrl} rel="noreferrer" target="_blank">장소 정보 ↗</a>
                 </div>
               </article>
             ))}
           </div>
-          <p className="contact-caution">담당업무와 전화번호는 바뀔 수 있으므로 연결되지 않으면 용인시 콜센터로 문의해주세요.</p>
-        </section>
-      ) : (
-        <section aria-labelledby="government-links-title">
-          <div className="contact-section-heading">
-            <h4 id="government-links-title">관할 행정기관</h4>
-            <small>직접 연락처 데이터 준비 중</small>
+        ) : (
+          <div className={`contact-api-status ${contactState.status}`} aria-live="polite">
+            {contactState.status === "loading" && <i aria-hidden="true" />}
+            <p>{contactState.status === "loaded" ? "선택 지역에서 전화번호가 확인된 관할기관이 없습니다." : contactState.message}</p>
+            {contactState.status === "error" && <button onClick={() => setRefreshKey((value) => value + 1)} type="button">다시 불러오기</button>}
           </div>
-          <div className="regional-link-grid">
-            {governmentLinks.map((item) => (
-              <a href={searchUrl(item.query)} key={item.label} rel="noreferrer" target="_blank">
-                <span aria-hidden="true">☎</span>{item.label}
-              </a>
-            ))}
-          </div>
-        </section>
-      )}
+        )}
+        <p className="contact-caution">카카오 Local API에서 6시간마다 최신 장소·전화 정보를 다시 확인합니다. 위생 담당부서는 검색 결과가 확인되는 지역만 표시합니다.</p>
+      </section>
 
       <section aria-labelledby="medical-links-title">
         <h4 id="medical-links-title">선택 지역에서 의료기관 찾기</h4>
@@ -245,9 +272,13 @@ export function SignalMap() {
   const shapes = useMemo(() => makeShapes(boundaries, level, selection, visibleSignals), [boundaries, level, selection, visibleSignals]);
   const bounds = useMemo(() => shapeBounds(shapes), [shapes]);
   const activeSignal = visibleSignals.find((signal) => signal.id === activeId) ?? visibleSignals[0];
-  const selectedRegion = [selection.sido, selection.city, selection.district, selection.dong].filter(Boolean).join(" ")
-    || activeSignal?.region
-    || "대한민국";
+  const helpSelection = selection.sido ? selection : activeSignal ? {
+    sido: activeSignal.sido,
+    city: activeSignal.city,
+    district: activeSignal.district,
+    dong: activeSignal.dong,
+  } : EMPTY_SELECTION;
+  const selectedRegion = [helpSelection.sido, helpSelection.city, helpSelection.district, helpSelection.dong].filter(Boolean).join(" ") || "대한민국";
 
   const moveTo = (shape: RegionShape) => {
     const matchingSignal = visibleSignals.find((signal) => signal[level] === shape.name);
@@ -332,7 +363,7 @@ export function SignalMap() {
       {activeSignal && <SignalCard signal={activeSignal} />}
       {!activeSignal && boundaries && <div className="no-signal-card">선택한 기간과 음식 유형에 공개할 수 있는 신호가 없습니다.</div>}
 
-      <RegionalHelp region={selectedRegion} />
+      <RegionalHelp region={selectedRegion} selection={helpSelection} />
 
       <p className="map-privacy-note"><span aria-hidden="true">◎</span>경계는 최신 행정동 기준이며, 신호는 음식점 위치가 아닌 공개 가능한 행정구역에만 표시합니다.</p>
       <details className="privacy-explainer">
