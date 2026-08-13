@@ -32,6 +32,7 @@ type CreateResult =
 
 type ReportStoreValue = {
   reports: StoredReport[];
+  sessionRestored: boolean;
   createReport: (ownerUid: string, draft: ReportDraft) => CreateResult;
   updateReport: (reportId: string, ownerUid: string, draft: ReportDraft) => StoredReport | null;
   getReport: (reportId: string) => StoredReport | undefined;
@@ -91,6 +92,7 @@ export function ReportStoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<ReportStoreValue>(() => ({
     reports,
+    sessionRestored,
     auditEvents,
     createReport(ownerUid, draft) {
       const dedupeKey = makeDedupeKey(ownerUid, draft.restaurantInternalId, draft.mealDate);
@@ -145,7 +147,7 @@ export function ReportStoreProvider({ children }: { children: ReactNode }) {
       }, ...current]);
       return true;
     },
-  }), [auditEvents, reports]);
+  }), [auditEvents, reports, sessionRestored]);
 
   return <ReportStore.Provider value={value}>{children}</ReportStore.Provider>;
 }

@@ -1,10 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { AdmFeature, EmdProperties, SggProperties, SidoProperties } from "admdongkor";
 import { FOOD_CATEGORIES, type FoodCategory } from "./contracts";
-import { publicSignals, type PublicSignal } from "./mock-signals";
+import { publicSignals, SIGNAL_DATA_END, SIGNAL_DATA_START, type PublicSignal } from "./mock-signals";
 
-type TimeFilter = 24 | 72;
+type MapLevel = "sido" | "city" | "district" | "dong";
+type BoundaryFeature = AdmFeature<SidoProperties | SggProperties | EmdProperties>;
+type BoundaryData = {
+  sido: AdmFeature<SidoProperties>[];
+  sgg: AdmFeature<SggProperties>[];
+  emd: AdmFeature<EmdProperties>[];
+};
+type RegionSelection = { sido: string; city: string; district: string };
+type RegionShape = { id: string; name: string; features: BoundaryFeature[]; signalCount: number };
+
+const EMPTY_SELECTION: RegionSelection = { sido: "", city: "", district: "" };
+
+function formatObservedAt(value: string) {
+  return new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(`${value}T12:00:00+09:00`));
+}
 
 function SignalCard({ signal }: { signal: PublicSignal }) {
   return (
@@ -15,25 +30,16 @@ function SignalCard({ signal }: { signal: PublicSignal }) {
             {signal.regionAdjusted ? "재식별 방지를 위해 넓혀서 공개" : "공개 기준 충족"}
           </span>
           <h3>{signal.region}</h3>
-          <p>{signal.category} 유형 · 최근 {signal.windowHours}시간</p>
+          <p>{signal.category} 유형 · {formatObservedAt(signal.observedAt)} 감지</p>
         </div>
         <span className={`trend-badge ${signal.trend}`}>
-          {signal.trend === "increased" ? "신고 증가" : "관찰 중"}
+          {signal.trend === "increased" ? "신고 증가" : "관찰 기록"}
         </span>
       </div>
       <dl className="signal-stats">
-        <div>
-          <dt>독립 신고</dt>
-          <dd>{signal.independentReports}<small>건</small></dd>
-        </div>
-        <div>
-          <dt>동행 증상자</dt>
-          <dd>{signal.companionSymptoms}<small>명</small></dd>
-        </div>
-        <div>
-          <dt>병원 방문</dt>
-          <dd>{signal.medicalVisits}<small>건</small></dd>
-        </div>
+        <div><dt>독립 신고</dt><dd>{signal.independentReports}<small>건</small></dd></div>
+        <div><dt>동행 증상자</dt><dd>{signal.companionSymptoms}<small>명</small></dd></div>
+        <div><dt>병원 방문</dt><dd>{signal.medicalVisits}<small>건</small></dd></div>
       </dl>
       <p className="signal-disclaimer">
         이 신호는 사용자 신고의 증가를 뜻하며 특정 업소의 식중독 발생을 의미하지 않습니다.
@@ -42,87 +48,195 @@ function SignalCard({ signal }: { signal: PublicSignal }) {
   );
 }
 
+function geometryRings(feature: BoundaryFeature) {
+  const geometry = feature.geometry;
+  return geometry.type === "Polygon" ? geometry.coordinates : geometry.coordinates.flat();
+}
+
+function shapeBounds(shapes: RegionShape[]) {
+  const points = shapes.flatMap((shape) => shape.features.flatMap((feature) => geometryRings(feature).flat()));
+  if (!points.length) return null;
+  return points.reduce((bounds, [x, y]) => ({
+    minX: Math.min(bounds.minX, x), maxX: Math.max(bounds.maxX, x),
+    minY: Math.min(bounds.minY, y), maxY: Math.max(bounds.maxY, y),
+  }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+}
+
+function projectedShape(shape: RegionShape, bounds: NonNullable<ReturnType<typeof shapeBounds>>) {
+  const width = 720;
+  const height = 520;
+  const margin = 22;
+  const scaleX = (width - margin * 2) / Math.max(0.0001, bounds.maxX - bounds.minX);
+  const scaleY = (height - margin * 2) / Math.max(0.0001, bounds.maxY - bounds.minY);
+  const scale = Math.min(scaleX, scaleY);
+  const drawnWidth = (bounds.maxX - bounds.minX) * scale;
+  const drawnHeight = (bounds.maxY - bounds.minY) * scale;
+  const offsetX = (width - drawnWidth) / 2;
+  const offsetY = (height - drawnHeight) / 2;
+  const project = ([x, y]: number[]) => [offsetX + (x - bounds.minX) * scale, offsetY + (bounds.maxY - y) * scale];
+  const paths = shape.features.flatMap((feature) => geometryRings(feature)).map((ring) => (
+    `${ring.map((point, index) => `${index ? "L" : "M"}${project(point).map((value) => value.toFixed(1)).join(" ")}`).join(" ")} Z`
+  )).join(" ");
+  const points = shape.features.flatMap((feature) => geometryRings(feature).flat()).map(project);
+  const label = points.reduce((box, [x, y]) => ({
+    minX: Math.min(box.minX, x), maxX: Math.max(box.maxX, x),
+    minY: Math.min(box.minY, y), maxY: Math.max(box.maxY, y),
+  }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+  return { path: paths, labelX: (label.minX + label.maxX) / 2, labelY: (label.minY + label.maxY) / 2 };
+}
+
+function cityName(value: string) {
+  return value.match(/^(.+?시)/)?.[1] ?? value;
+}
+
+function districtName(value: string, city: string) {
+  const remainder = value.replace(city, "").trim();
+  return remainder || city;
+}
+
+function countSignals(signals: PublicSignal[], level: MapLevel, name: string) {
+  return signals.filter((signal) => signal[level] === name).length;
+}
+
+function makeShapes(data: BoundaryData | null, level: MapLevel, selection: RegionSelection, signals: PublicSignal[]): RegionShape[] {
+  if (!data) return [];
+  const groups = new Map<string, BoundaryFeature[]>();
+  const add = (name: string, feature: BoundaryFeature) => groups.set(name, [...(groups.get(name) ?? []), feature]);
+
+  if (level === "sido") data.sido.forEach((feature) => add(feature.properties.sidonm, feature));
+  if (level === "city") data.sgg.filter((feature) => feature.properties.sidonm === selection.sido)
+    .forEach((feature) => add(cityName(feature.properties.sggnm), feature));
+  if (level === "district") data.sgg.filter((feature) => feature.properties.sidonm === selection.sido && cityName(feature.properties.sggnm) === selection.city)
+    .forEach((feature) => add(districtName(feature.properties.sggnm, selection.city), feature));
+  if (level === "dong") data.emd.filter((feature) => feature.properties.sidonm === selection.sido
+    && cityName(feature.properties.sggnm ?? "") === selection.city
+    && districtName(feature.properties.sggnm ?? "", selection.city) === selection.district)
+    .forEach((feature) => add(feature.properties.emdnm, feature));
+
+  return [...groups.entries()].map(([name, features]) => ({
+    id: `${level}-${name}`,
+    name,
+    features,
+    signalCount: countSignals(signals, level, name),
+  })).sort((a, b) => b.signalCount - a.signalCount || a.name.localeCompare(b.name, "ko"));
+}
+
 export function SignalMap() {
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>(72);
+  const [startDate, setStartDate] = useState(SIGNAL_DATA_START);
+  const [endDate, setEndDate] = useState(SIGNAL_DATA_END);
   const [category, setCategory] = useState<FoodCategory | "전체">("전체");
+  const [level, setLevel] = useState<MapLevel>("sido");
+  const [selection, setSelection] = useState<RegionSelection>(EMPTY_SELECTION);
   const [activeId, setActiveId] = useState(publicSignals[0].id);
+  const [boundaries, setBoundaries] = useState<BoundaryData | null>(null);
+  const [boundaryError, setBoundaryError] = useState(false);
 
-  const visibleSignals = useMemo(
-    () => publicSignals.filter((signal) =>
-      signal.windowHours <= timeFilter && (category === "전체" || signal.category === category)),
-    [category, timeFilter],
-  );
+  useEffect(() => {
+    const controller = new AbortController();
+    void import("admdongkor").then(async ({ get }) => {
+      const [sido, sgg, emd] = await Promise.all([
+        get("20260701", "sido", { signal: controller.signal }),
+        get("20260701", "sgg", { signal: controller.signal }),
+        get("20260701", "emd", { signal: controller.signal }),
+      ]);
+      if (!controller.signal.aborted) setBoundaries({
+        sido: sido.features as AdmFeature<SidoProperties>[],
+        sgg: sgg.features as AdmFeature<SggProperties>[],
+        emd: emd.features as AdmFeature<EmdProperties>[],
+      });
+    }).catch(() => { if (!controller.signal.aborted) setBoundaryError(true); });
+    return () => controller.abort();
+  }, []);
 
+  const visibleSignals = useMemo(() => publicSignals.filter((signal) =>
+    signal.observedAt >= startDate && signal.observedAt <= endDate
+    && (category === "전체" || signal.category === category)), [category, endDate, startDate]);
+  const shapes = useMemo(() => makeShapes(boundaries, level, selection, visibleSignals), [boundaries, level, selection, visibleSignals]);
+  const bounds = useMemo(() => shapeBounds(shapes), [shapes]);
   const activeSignal = visibleSignals.find((signal) => signal.id === activeId) ?? visibleSignals[0];
+
+  const moveTo = (shape: RegionShape) => {
+    const matchingSignal = visibleSignals.find((signal) => signal[level] === shape.name);
+    if (matchingSignal) setActiveId(matchingSignal.id);
+    if (level === "sido") { setSelection({ sido: shape.name, city: "", district: "" }); setLevel("city"); }
+    if (level === "city") { setSelection((current) => ({ ...current, city: shape.name, district: "" })); setLevel("district"); }
+    if (level === "district") { setSelection((current) => ({ ...current, district: shape.name })); setLevel("dong"); }
+  };
+
+  const resetTo = (target: MapLevel) => {
+    setLevel(target);
+    if (target === "sido") setSelection(EMPTY_SELECTION);
+    if (target === "city") setSelection((current) => ({ sido: current.sido, city: "", district: "" }));
+    if (target === "district") setSelection((current) => ({ ...current, district: "" }));
+  };
 
   return (
     <section className="map-section" aria-labelledby="map-title">
       <div className="section-heading">
-        <div>
-          <p className="eyebrow">주변 위장관 증상 신호</p>
-          <h2 id="map-title">지금 모인 신호</h2>
-        </div>
-        <span className="live-status"><i aria-hidden="true" /> 모의 데이터</span>
+        <div><p className="eyebrow">행정구역별 위장관 증상 신호</p><h2 id="map-title">지금 모인 신호</h2></div>
+        <span className="live-status"><i aria-hidden="true" /> 행정경계 · 모의 데이터</span>
       </div>
 
+      <div className="date-filter" aria-label="조회 기간">
+        <label>시작일<input min={SIGNAL_DATA_START} max={endDate} type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
+        <span aria-hidden="true">→</span>
+        <label>종료일<input min={startDate} max={SIGNAL_DATA_END} type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
+        <small>최근 1년 조회 가능</small>
+      </div>
       <div className="filter-strip" aria-label="지도 필터">
-        <div className="segmented-control" aria-label="조회 기간">
-          {([24, 72] as const).map((hours) => (
-            <button
-              aria-pressed={timeFilter === hours}
-              className={timeFilter === hours ? "active" : ""}
-              key={hours}
-              onClick={() => setTimeFilter(hours)}
-              type="button"
-            >
-              {hours}시간
-            </button>
-          ))}
-        </div>
-        <select
-          aria-label="음식 유형"
-          onChange={(event) => setCategory(event.target.value as FoodCategory | "전체")}
-          value={category}
-        >
+        <select aria-label="음식 유형" onChange={(event) => setCategory(event.target.value as FoodCategory | "전체")} value={category}>
           <option value="전체">모든 음식 유형</option>
           {FOOD_CATEGORIES.map((item) => <option key={item}>{item}</option>)}
         </select>
+        <span className="result-count">공개 신호 {visibleSignals.length}건</span>
       </div>
 
-      <div className="signal-map" role="application" aria-label="비식별 증상 신호 지도">
-        <div className="road road-one" aria-hidden="true" />
-        <div className="road road-two" aria-hidden="true" />
-        <div className="road road-three" aria-hidden="true" />
-        <div className="water" aria-hidden="true" />
-        <span className="map-place place-one">수원시</span>
-        <span className="map-place place-two">용인시</span>
-        <span className="map-place place-three">성남시</span>
+      <nav className="map-breadcrumb" aria-label="행정구역 단계">
+        <button aria-current={level === "sido" ? "page" : undefined} onClick={() => resetTo("sido")} type="button">시/도</button>
+        {selection.sido && <><span>›</span><button aria-current={level === "city" ? "page" : undefined} onClick={() => resetTo("city")} type="button">{selection.sido}</button></>}
+        {selection.city && <><span>›</span><button aria-current={level === "district" ? "page" : undefined} onClick={() => resetTo("district")} type="button">{selection.city}</button></>}
+        {selection.district && <><span>›</span><button aria-current={level === "dong" ? "page" : undefined} type="button">{selection.district}</button></>}
+      </nav>
 
-        {visibleSignals.map((signal) => (
-          <button
-            aria-label={`${signal.region} ${signal.category} 유형 신고 ${signal.independentReports}건`}
-            aria-pressed={activeSignal?.id === signal.id}
-            className={`signal-pin ${signal.trend} ${activeSignal?.id === signal.id ? "active" : ""}`}
-            key={signal.id}
-            onClick={() => setActiveId(signal.id)}
-            style={{ left: `${signal.position.x}%`, top: `${signal.position.y}%` }}
-            type="button"
-          >
-            <span>{signal.independentReports}</span>
-          </button>
-        ))}
-
-        {visibleSignals.length === 0 && (
-          <div className="empty-map">선택한 조건에 공개할 수 있는 신호가 아직 없어요.</div>
-        )}
+      <div className="admin-map-shell">
+        <div className="admin-boundary-map" role="application" aria-label="대한민국 행정구역 경계 지도">
+          {!boundaries && !boundaryError && <div className="map-loading"><i aria-hidden="true" /> 최신 행정경계를 불러오는 중입니다</div>}
+          {boundaryError && <div className="empty-map">행정경계 데이터를 불러오지 못했습니다. 잠시 후 새로고침해주세요.</div>}
+          {bounds && (
+            <svg aria-label={`${level} 단계 행정구역`} role="img" viewBox="0 0 720 520">
+              {shapes.map((shape) => {
+                const projected = projectedShape(shape, bounds);
+                return (
+                  <g
+                    aria-label={`${shape.name}${shape.signalCount ? `, 공개 신호 ${shape.signalCount}건` : ", 공개 신호 없음"}`}
+                    className={shape.signalCount ? "has-signal" : ""}
+                    key={shape.id}
+                    onClick={() => moveTo(shape)}
+                    onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") moveTo(shape); }}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <path d={projected.path} />
+                    {(shape.signalCount > 0 || shapes.length <= 20) && <text x={projected.labelX} y={projected.labelY}>{shape.name}<tspan dx="5">{shape.signalCount ? shape.signalCount : ""}</tspan></text>}
+                  </g>
+                );
+              })}
+            </svg>
+          )}
+        </div>
+        <div className="admin-region-list" aria-label="현재 단계 행정구역 목록">
+          {shapes.map((shape) => (
+            <button className={shape.signalCount ? "has-signal" : ""} key={shape.id} onClick={() => moveTo(shape)} type="button">
+              <span>{shape.name}</span><strong>{shape.signalCount ? `${shape.signalCount}건` : "–"}</strong>
+            </button>
+          ))}
+        </div>
       </div>
 
       {activeSignal && <SignalCard signal={activeSignal} />}
+      {!activeSignal && boundaries && <div className="no-signal-card">선택한 기간과 음식 유형에 공개할 수 있는 신호가 없습니다.</div>}
 
-      <p className="map-privacy-note">
-        <span aria-hidden="true">◎</span>
-        핀은 음식점 좌표가 아닌 공개 가능한 행정구역 중심을 나타냅니다.
-      </p>
+      <p className="map-privacy-note"><span aria-hidden="true">◎</span>경계는 최신 행정동 기준이며, 신호는 음식점 위치가 아닌 공개 가능한 행정구역에만 표시합니다.</p>
       <details className="privacy-explainer">
         <summary>어떤 신호가 지도에 공개되나요?</summary>
         <div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { FOOD_CATEGORIES, type ReportDraft } from "../contracts";
 import { useAuth } from "../auth/auth-context";
@@ -99,19 +99,34 @@ function calculateIncubation(draft: ReportDraft) {
 
 export function ReportWizard() {
   const { user } = useAuth();
-  const { createReport, getReport, updateReport } = useReports();
+  const { createReport, getReport, sessionRestored, updateReport } = useReports();
   const searchParams = useSearchParams();
   const requestedEditId = searchParams.get("edit");
   const requestedReport = requestedEditId ? getReport(requestedEditId) : undefined;
-  const editableReport = requestedReport?.ownerUid === user?.uid ? requestedReport : undefined;
-  const [step, setStep] = useState(editableReport ? 3 : 0);
-  const [draft, setDraft] = useState<ReportDraft>(() => editableReport ? structuredClone(editableReport.draft) : initialDraft);
-  const [editingId, setEditingId] = useState<string | null>(editableReport?.id ?? null);
+  const [loadedEditId, setLoadedEditId] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
+  const [draft, setDraft] = useState<ReportDraft>(initialDraft);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [consented, setConsented] = useState(false);
   const [duplicateNotice, setDuplicateNotice] = useState(false);
   const [completedReport, setCompletedReport] = useState<StoredReport | null>(null);
   const candidates = useMemo(() => findRestaurantCandidates(draft.restaurantDisplayInput), [draft.restaurantDisplayInput]);
   const incubation = calculateIncubation(draft);
+
+  /* The report store is restored after hydration, so edit data must be applied afterwards. */
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!requestedEditId || !sessionRestored || !user || loadedEditId === requestedEditId) return;
+    if (!requestedReport || requestedReport.ownerUid !== user.uid) return;
+    setLoadedEditId(requestedEditId);
+    setDraft(structuredClone(requestedReport.draft));
+    setEditingId(requestedReport.id);
+    setStep(3);
+    setConsented(false);
+    setDuplicateNotice(false);
+    setCompletedReport(null);
+  }, [loadedEditId, requestedEditId, requestedReport, sessionRestored, user]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const patch = <K extends keyof ReportDraft>(key: K, value: ReportDraft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -126,6 +141,38 @@ export function ReportWizard() {
         <p>현재는 실제 계정 정보를 사용하지 않는 체험 로그인을 제공합니다.</p>
         <NativeLink className="kakao-button" href="/login">카카오로 시작하기</NativeLink>
         <NativeLink className="text-link" href="/">지도로 돌아가기</NativeLink>
+      </section>
+    );
+  }
+
+  if (requestedEditId && !sessionRestored) {
+    return (
+      <section className="auth-gate" aria-live="polite">
+        <span className="lock-mark" aria-hidden="true">…</span>
+        <p className="eyebrow">신고 불러오는 중</p>
+        <h1>저장된 내용을<br />불러오고 있어요</h1>
+      </section>
+    );
+  }
+
+  if (requestedEditId && (!requestedReport || requestedReport.ownerUid !== user.uid)) {
+    return (
+      <section className="auth-gate">
+        <span className="lock-mark" aria-hidden="true">!</span>
+        <p className="eyebrow">신고를 찾을 수 없어요</p>
+        <h1>이 브라우저에 저장된<br />신고가 아닙니다</h1>
+        <p>체험 신고는 작성한 브라우저 세션에서만 수정할 수 있습니다.</p>
+        <NativeLink className="primary-button" href="/my-reports">내 신고로 돌아가기</NativeLink>
+      </section>
+    );
+  }
+
+  if (requestedEditId && loadedEditId !== requestedEditId) {
+    return (
+      <section className="auth-gate" aria-live="polite">
+        <span className="lock-mark" aria-hidden="true">…</span>
+        <p className="eyebrow">수정 화면 준비 중</p>
+        <h1>신고 내용을<br />채우고 있어요</h1>
       </section>
     );
   }
