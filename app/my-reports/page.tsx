@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useAuth } from "../auth/auth-context";
+import { NativeLink } from "../native-link";
 import { useReports } from "../reports/report-store";
 
 const statusLabel = {
@@ -20,10 +20,10 @@ export default function MyReportsPage() {
   if (!user) {
     return (
       <main className="narrow-page">
-        <Link className="back-link" href="/">← 지도로 돌아가기</Link>
+        <NativeLink className="back-link" href="/">← 지도로 돌아가기</NativeLink>
         <section className="empty-reports">
           <h1>내 신고를 보려면<br />먼저 로그인해주세요</h1>
-          <Link className="kakao-button" href="/login">카카오로 시작하기</Link>
+          <NativeLink className="kakao-button" href="/login">카카오로 시작하기</NativeLink>
         </section>
       </main>
     );
@@ -32,8 +32,8 @@ export default function MyReportsPage() {
   return (
     <main className="my-reports-page">
       <header className="report-header">
-        <Link className="back-link" href="/">← 지도</Link>
-        <Link className="small-action" href="/report">새 신고</Link>
+        <NativeLink className="back-link" href="/">← 지도</NativeLink>
+        <NativeLink className="small-action" href="/report">새 신고</NativeLink>
       </header>
       <section className="my-reports-heading">
         <p className="eyebrow">나만 볼 수 있어요</p>
@@ -46,7 +46,7 @@ export default function MyReportsPage() {
           <span aria-hidden="true">○</span>
           <h2>아직 제출한 신고가 없어요</h2>
           <p>외식 후 위장관 증상이 있었다면 알려주세요.</p>
-          <Link className="primary-button" href="/report">첫 신고 작성하기</Link>
+          <NativeLink className="primary-button" href="/report">첫 신고 작성하기</NativeLink>
         </section>
       ) : (
         <div className="report-list">
@@ -63,7 +63,7 @@ export default function MyReportsPage() {
                 <div><dt>증상</dt><dd>{report.draft.symptoms.join(", ")}</dd></div>
                 <div><dt>동행 증상자</dt><dd>{report.draft.partySymptomatic}명</dd></div>
               </dl>
-              <Link className="edit-report" href={`/report?edit=${report.id}`}>신고 내용 수정</Link>
+              <NativeLink className="edit-report" href={`/report?edit=${report.id}`}>신고 내용 수정</NativeLink>
             </article>
           ))}
         </div>

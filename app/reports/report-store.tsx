@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ReportDraft, ReportStatus } from "../contracts";
 import { canTransitionReport } from "../security/policy";
 
@@ -40,6 +40,8 @@ type ReportStoreValue = {
 };
 
 const ReportStore = createContext<ReportStoreValue | null>(null);
+const SESSION_REPORTS_KEY = "foodsick.demo-reports";
+const SESSION_AUDIT_KEY = "foodsick.demo-audit-events";
 
 export function makeDedupeKey(ownerUid: string, restaurantInternalId: string, mealDate: string) {
   return [ownerUid, restaurantInternalId, mealDate].map((part) => part.trim().toLocaleLowerCase("ko-KR")).join("|");
@@ -56,6 +58,36 @@ function calculateIncubationMinutes(draft: ReportDraft) {
 export function ReportStoreProvider({ children }: { children: ReactNode }) {
   const [reports, setReports] = useState<StoredReport[]>([]);
   const [auditEvents, setAuditEvents] = useState<AdminAuditEvent[]>([]);
+  const [sessionRestored, setSessionRestored] = useState(false);
+
+  /* Session storage is client-only, so restoration must happen after hydration. */
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    try {
+      const storedReports = window.sessionStorage.getItem(SESSION_REPORTS_KEY);
+      const storedAuditEvents = window.sessionStorage.getItem(SESSION_AUDIT_KEY);
+      if (storedReports) {
+        const parsed = JSON.parse(storedReports) as unknown;
+        if (Array.isArray(parsed)) setReports(parsed as StoredReport[]);
+      }
+      if (storedAuditEvents) {
+        const parsed = JSON.parse(storedAuditEvents) as unknown;
+        if (Array.isArray(parsed)) setAuditEvents(parsed as AdminAuditEvent[]);
+      }
+    } catch {
+      window.sessionStorage.removeItem(SESSION_REPORTS_KEY);
+      window.sessionStorage.removeItem(SESSION_AUDIT_KEY);
+    } finally {
+      setSessionRestored(true);
+    }
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    if (!sessionRestored) return;
+    window.sessionStorage.setItem(SESSION_REPORTS_KEY, JSON.stringify(reports));
+    window.sessionStorage.setItem(SESSION_AUDIT_KEY, JSON.stringify(auditEvents));
+  }, [auditEvents, reports, sessionRestored]);
 
   const value = useMemo<ReportStoreValue>(() => ({
     reports,

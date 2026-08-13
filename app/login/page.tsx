@@ -1,21 +1,19 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "../auth/auth-context";
+import { NativeLink } from "../native-link";
 
 export default function LoginPage() {
-  const router = useRouter();
   const { user, loginForDemo, loginAsAdminForDemo, logout } = useAuth();
 
   const handleLogin = () => {
     loginForDemo();
-    router.push("/");
+    window.location.assign("/report");
   };
 
   return (
     <main className="narrow-page">
-      <Link className="back-link" href="/">← 지도로 돌아가기</Link>
+      <NativeLink className="back-link" href="/">← 지도로 돌아가기</NativeLink>
       <section className="login-card">
         <span className="kakao-symbol" aria-hidden="true">K</span>
         <p className="eyebrow">신고 전 한 번만</p>
@@ -40,7 +38,7 @@ export default function LoginPage() {
           </button>
         )}
         {!user && (
-          <button className="admin-demo-button" onClick={() => { loginAsAdminForDemo(); router.push("/admin"); }} type="button">
+          <button className="admin-demo-button" onClick={() => { loginAsAdminForDemo(); window.location.assign("/admin"); }} type="button">
             관리자 화면 체험하기
           </button>
         )}

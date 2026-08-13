@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { FOOD_CATEGORIES, type ReportDraft } from "../contracts";
 import { useAuth } from "../auth/auth-context";
+import { NativeLink } from "../native-link";
 import { findRestaurantCandidates, restaurantCandidates } from "./restaurant-matcher";
 import { useReports, type StoredReport } from "../reports/report-store";
 
@@ -124,8 +124,8 @@ export function ReportWizard() {
         <p className="eyebrow">로그인이 필요해요</p>
         <h1>중복 신고를 줄이기 위해<br />카카오 로그인을 먼저 해주세요</h1>
         <p>현재는 실제 계정 정보를 사용하지 않는 체험 로그인을 제공합니다.</p>
-        <Link className="kakao-button" href="/login">카카오로 시작하기</Link>
-        <Link className="text-link" href="/">지도로 돌아가기</Link>
+        <NativeLink className="kakao-button" href="/login">카카오로 시작하기</NativeLink>
+        <NativeLink className="text-link" href="/">지도로 돌아가기</NativeLink>
       </section>
     );
   }
@@ -141,8 +141,8 @@ export function ReportWizard() {
           <div><span>독립 신고</span><strong>1건</strong></div>
           <div><span>동행 증상자</span><strong>{completedReport.draft.partySymptomatic}명</strong></div>
         </div>
-        <Link className="primary-button" href="/my-reports">내 신고 확인</Link>
-        <Link className="text-link" href="/">공개 지도로 돌아가기</Link>
+        <NativeLink className="primary-button" href="/my-reports">내 신고 확인</NativeLink>
+        <NativeLink className="text-link" href="/">공개 지도로 돌아가기</NativeLink>
       </main>
     );
   }
@@ -150,7 +150,7 @@ export function ReportWizard() {
   return (
     <main className="report-page">
       <header className="report-header">
-        <Link className="back-link" href="/">← 나가기</Link>
+        <NativeLink className="back-link" href="/">← 나가기</NativeLink>
         <span>체험 신고</span>
       </header>
 

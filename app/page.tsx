@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { SignalMap } from "./signal-map";
 import { SessionControl } from "./auth/session-control";
+import { NativeLink } from "./native-link";
 
 const foundations = [
   "음식점 이름과 정확한 위치는 공개하지 않아요",
@@ -12,10 +12,10 @@ export default function Home() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <Link className="brand" href="/" aria-label="아파요 지도 홈">
+        <NativeLink className="brand" href="/" aria-label="아파요 지도 홈">
           <span className="brand-mark" aria-hidden="true">아</span>
           <span>아파요 지도</span>
-        </Link>
+        </NativeLink>
         <SessionControl />
       </header>
 
@@ -30,9 +30,9 @@ export default function Home() {
           <a className="primary-button" href="#signals">
             주변 신호 보기
           </a>
-          <Link className="secondary-button" href="/report">
+          <NativeLink className="secondary-button" href="/report">
             증상 신고하기
-          </Link>
+          </NativeLink>
         </div>
       </section>
 

@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "../auth/auth-context";
+import { NativeLink } from "../native-link";
 import { useReports } from "../reports/report-store";
 
 const demoReports = [
@@ -22,8 +22,8 @@ export default function AdminPage() {
         <span aria-hidden="true">403</span>
         <h1>관리자 권한이 필요합니다</h1>
         <p>화면의 버튼이 아니라 서버의 Firebase custom claim으로 권한을 확인해야 합니다.</p>
-        <Link className="primary-button" href="/login">체험 로그인으로 이동</Link>
-        <Link className="text-link" href="/">공개 지도로 돌아가기</Link>
+        <NativeLink className="primary-button" href="/login">체험 로그인으로 이동</NativeLink>
+        <NativeLink className="text-link" href="/">공개 지도로 돌아가기</NativeLink>
       </main>
     );
   }
@@ -42,7 +42,7 @@ export default function AdminPage() {
     <main className="admin-page">
       <header className="admin-topbar">
         <div><span className="admin-mark">A</span><strong>아파요 지도 운영</strong></div>
-        <Link href="/">공개 지도</Link>
+        <NativeLink href="/">공개 지도</NativeLink>
       </header>
       <section className="admin-heading">
         <p className="eyebrow">관리자 전용 · 체험 데이터</p>
