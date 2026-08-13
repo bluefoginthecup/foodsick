@@ -124,7 +124,7 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
   };
 
   return (
-    <aside className="regional-help" aria-labelledby="regional-help-title">
+    <aside className="regional-help" id="regional-help" aria-labelledby="regional-help-title">
       <div className="regional-help-heading">
         <div>
           <p className="eyebrow">선택 지역 생활·의료 안내</p>

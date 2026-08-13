@@ -16,6 +16,11 @@ test("renders the Korean mobile-first foundation", async () => {
   const html = await response.text();
   assert.match(html, /<html lang="ko"/);
   assert.match(html, /나만 아픈 걸까/);
+  assert.match(html, /전체 메뉴 열기/);
+  assert.match(html, /지도·신고/);
+  assert.match(html, /기관·의료/);
+  assert.match(html, /법률지원/);
+  assert.match(html, /관리자 검토실/);
   assert.match(html, /음식점 이름과 정확한 위치는 공개하지 않아요/);
   assert.match(html, /지금 모인 신호/);
   assert.match(html, /모의 데이터/);

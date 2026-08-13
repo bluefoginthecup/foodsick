@@ -15,7 +15,7 @@
 
 * { box-sizing: border-box; }
 
-html { background: var(--paper); }
+html { background: var(--paper); scroll-padding-top: 94px; }
 
 body {
   margin: 0;
@@ -31,6 +31,43 @@ button, input, select, textarea { font: inherit; }
 button { color: inherit; }
 
 .app-shell { width: min(100%, 1120px); margin: 0 auto; padding: 0 20px 44px; }
+
+.site-navigation { position: sticky; z-index: 40; top: 0; border-bottom: 1px solid var(--line); background: rgba(246,242,233,.92); box-shadow: 0 8px 28px rgba(28,50,42,.06); backdrop-filter: blur(18px); }
+.site-nav-bar { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 14px; width: min(100%, 1120px); min-height: 70px; margin: 0 auto; padding: 10px 20px; }
+.site-navigation .brand { flex: 0 0 auto; }
+.site-nav-quick { display: none; align-items: center; gap: 4px; margin-left: auto; }
+.site-nav-quick a { padding: 9px 11px; color: var(--muted); border-radius: 10px; font-size: 11px; font-weight: 800; text-decoration: none; }
+.site-nav-quick a:hover, .site-nav-quick a:focus-visible { color: var(--forest-dark); background: var(--mint); }
+.site-nav-quick .quick-report { color: white; background: var(--forest); }
+.site-nav-quick .quick-report:hover, .site-nav-quick .quick-report:focus-visible { color: white; background: var(--forest-dark); }
+.site-menu { position: relative; }
+.site-menu summary { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 0 12px; color: var(--forest-dark); background: white; border: 1px solid var(--line); border-radius: 13px; list-style: none; font-size: 11px; font-weight: 900; cursor: pointer; user-select: none; }
+.site-menu summary::-webkit-details-marker { display: none; }
+.site-menu summary:hover, .site-menu summary:focus-visible, .site-menu[open] summary { border-color: rgba(29,89,70,.55); background: var(--mint); outline: none; }
+.site-menu summary > i { display: grid; gap: 3px; width: 16px; }
+.site-menu summary b { display: block; width: 16px; height: 2px; background: currentColor; border-radius: 2px; transition: transform .16s ease, opacity .16s ease; }
+.site-menu[open] summary b:first-child { transform: translateY(5px) rotate(45deg); }
+.site-menu[open] summary b:nth-child(2) { opacity: 0; }
+.site-menu[open] summary b:last-child { transform: translateY(-5px) rotate(-45deg); }
+.site-menu-panel { position: absolute; top: calc(100% + 12px); right: -8px; width: min(calc(100vw - 24px), 920px); max-height: calc(100vh - 96px); padding: 18px; overflow-y: auto; background: #fffdf8; border: 1px solid rgba(29,89,70,.2); border-radius: 22px; box-shadow: 0 24px 70px rgba(18,60,48,.2); }
+.site-menu-heading { display: flex; align-items: end; justify-content: space-between; gap: 14px; padding: 2px 2px 16px; border-bottom: 1px solid var(--line); }
+.site-menu-heading > div { display: grid; gap: 3px; }
+.site-menu-heading span { color: var(--coral); font-size: 8px; font-weight: 950; letter-spacing: .12em; }
+.site-menu-heading strong { font-size: 19px; letter-spacing: -.04em; }
+.site-menu-heading small { color: var(--muted); font-size: 8px; text-align: right; }
+.site-menu-groups { display: grid; gap: 10px; padding: 14px 0; }
+.site-menu-groups section { padding: 14px; background: #f4f5ef; border-radius: 16px; }
+.site-menu-groups h2 { margin: 0; color: var(--forest-dark); font-size: 13px; letter-spacing: -.02em; }
+.site-menu-groups p { margin: 4px 0 12px; color: var(--muted); font-size: 8px; line-height: 1.45; }
+.site-menu-groups section > div { display: grid; gap: 3px; }
+.site-menu-groups a { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 38px; padding: 7px 9px; color: var(--ink); border-radius: 9px; font-size: 10px; font-weight: 800; text-decoration: none; }
+.site-menu-groups a b { color: #91a099; font-size: 9px; }
+.site-menu-groups a:hover, .site-menu-groups a:focus-visible { color: var(--forest-dark); background: white; outline: 2px solid rgba(29,89,70,.18); }
+.site-menu-groups a[aria-current="page"] { color: white; background: var(--forest); }
+.site-menu-groups a[aria-current="page"] b { color: white; }
+.site-menu-account { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 3px 0; border-top: 1px solid var(--line); }
+.site-menu-account > span { color: var(--muted); font-size: 9px; font-weight: 850; }
+.site-menu-account .session-control { flex-wrap: wrap; justify-content: flex-end; }
 
 .topbar {
   min-height: 72px;
@@ -511,6 +548,10 @@ button { color: inherit; }
 .firm-review-actions a { grid-column: 1 / -1; color: var(--forest); background: white; border: 1px solid var(--forest); }
 
 @media (min-width: 700px) {
+  .site-nav-bar { padding-inline: 32px; }
+  .site-nav-quick { display: flex; }
+  .site-menu-panel { right: 0; padding: 22px; }
+  .site-menu-groups { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .app-shell { padding-inline: 32px; }
   .hero { padding-top: 86px; }
   .hero-actions { width: fit-content; grid-template-columns: repeat(2, 190px); }

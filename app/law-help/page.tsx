@@ -32,11 +32,6 @@ export default function LawHelpPage() {
 
   return (
     <main className="legal-page">
-      <header className="legal-topbar">
-        <NativeLink className="brand" href="/"><span className="brand-mark">아</span><span>아파요 지도</span></NativeLink>
-        <NativeLink href="/law-firms/register">로펌 등록 신청</NativeLink>
-      </header>
-
       <section className="legal-hero">
         <p className="eyebrow">식중독 피해 이후의 다음 단계</p>
         <h1>기록하고,<br />확인하고,<br /><em>도움을 찾으세요.</em></h1>

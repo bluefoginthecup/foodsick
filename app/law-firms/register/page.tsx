@@ -34,7 +34,6 @@ export default function LawFirmRegisterPage() {
 
   return (
     <main className="firm-register-page">
-      <header className="legal-topbar"><NativeLink className="brand" href="/"><span className="brand-mark">아</span><span>아파요 지도</span></NativeLink><NativeLink href="/law-help">법률지원 홈</NativeLink></header>
       <section className="register-heading"><p className="eyebrow">로펌·법률사무소 자발적 등록</p><h1>식중독 사건 경험을<br />검증받고 등록하세요</h1><p>사건번호와 변호사 등록번호는 관리자 검증용이며 공개 프로필에는 표시하지 않습니다.</p></section>
       <form className="firm-register-form" onSubmit={submit}>
         <fieldset><legend><span>1</span>사무소 기본정보</legend>

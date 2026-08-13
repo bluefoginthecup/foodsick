@@ -1,5 +1,4 @@
 import { SignalMap } from "./signal-map";
-import { SessionControl } from "./auth/session-control";
 import { NativeLink } from "./native-link";
 
 const foundations = [
@@ -11,14 +10,6 @@ const foundations = [
 export default function Home() {
   return (
     <main className="app-shell">
-      <header className="topbar">
-        <NativeLink className="brand" href="/" aria-label="아파요 지도 홈">
-          <span className="brand-mark" aria-hidden="true">아</span>
-          <span>아파요 지도</span>
-        </NativeLink>
-        <SessionControl />
-      </header>
-
       <section className="hero" aria-labelledby="hero-title">
         <p className="eyebrow">시민 기반 위장관 증상 조기 신호</p>
         <h1 id="hero-title">나만 아픈 걸까?</h1>
@@ -58,7 +49,7 @@ export default function Home() {
 
       <footer className="site-footer">
         <p>의료 진단 서비스가 아닙니다. 심한 증상은 의료기관에 문의하세요.</p>
-        <span>Firebase·D1 백엔드 기반 · 9단계</span>
+        <span>Firebase·D1 백엔드 기반 · 10단계</span>
       </footer>
     </main>
   );
