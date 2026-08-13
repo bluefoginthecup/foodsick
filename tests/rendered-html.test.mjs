@@ -34,7 +34,8 @@ test("renders the Korean mobile-first foundation", async () => {
   assert.match(html, /식중독 신고·문의/);
   assert.match(html, /지역 선택 후 자동 조회/);
   assert.match(html, /지역별 서버 캐시에 저장해 즉시 표시하고/);
-  assert.match(html, /API에서 전화번호를 확인하지 못했습니다/);
+  assert.match(html, /최신 전화번호는 뒤에서 확인합니다/);
+  assert.match(html, /구글에서 먼저 확인/);
   assert.match(html, /구글 검색은 AI 요약과 검색결과를 통한 보조 확인 수단/);
   assert.doesNotMatch(html, /031-6193-6303/);
   assert.doesNotMatch(html, /교동면옥|상호명|도로명주소/);

@@ -165,13 +165,6 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
           <div><span aria-hidden="true">!</span><h4 id="government-links-title">식중독 신고·문의</h4></div>
           <small>{fetchedLabel}</small>
         </div>
-        {(contactState.status === "loading" || contactState.status === "error") && (
-          <div className={`contact-api-status ${contactState.status}`} aria-live="polite">
-            {contactState.status === "loading" && <i aria-hidden="true" />}
-            <p>{contactState.message}</p>
-            {contactState.status === "error" && <button onClick={() => setRefreshKey((value) => value + 1)} type="button">다시 불러오기</button>}
-          </div>
-        )}
         <div className="contact-card-grid">
           {contactSlots.map((slot) => slot.contact ? (
             <article className={`contact-card ${slot.kind}`} key={slot.kind}>
@@ -191,13 +184,18 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
             <article className={`contact-card ${slot.kind} unavailable`} key={slot.kind}>
               <span className="contact-kind">{slot.label}</span>
               <strong>{slot.expectedName}</strong>
-              <p>{contactState.status === "loading" ? "최신 전화번호를 확인하고 있습니다." : "API에서 전화번호를 확인하지 못했습니다."}</p>
-              {contactState.status !== "loading" && (
-                <a className="contact-google-search" href={googleSearchUrl(`${region} ${slot.expectedName} 대표전화 공식`)} rel="noreferrer" target="_blank">구글에서 전화번호 확인 ↗</a>
-              )}
+              <p>{contactState.status === "loading" || contactState.status === "idle" ? "구글 검색은 바로 사용할 수 있으며, 최신 전화번호는 뒤에서 확인합니다." : "API에서 전화번호를 확인하지 못했습니다."}</p>
+              <a className="contact-google-search" href={googleSearchUrl(`${region} ${slot.expectedName} 대표전화 공식`)} rel="noreferrer" target="_blank">구글에서 먼저 확인 ↗</a>
             </article>
           ))}
         </div>
+        {(contactState.status === "loading" || contactState.status === "error") && (
+          <div className={`contact-api-status compact ${contactState.status}`} aria-live="polite">
+            {contactState.status === "loading" && <i aria-hidden="true" />}
+            <p>{contactState.message}</p>
+            {contactState.status === "error" && <button onClick={() => setRefreshKey((value) => value + 1)} type="button">다시 불러오기</button>}
+          </div>
+        )}
         <p className="contact-caution">확인한 연락처는 지역별 서버 캐시에 저장해 즉시 표시하고, 6시간이 지나면 카카오 Local API·행정안전부 조직정보·지자체 공식 직원안내에서 새로 확인합니다.</p>
         <p className="contact-caution">구글 검색은 AI 요약과 검색결과를 통한 보조 확인 수단이며, 최종 연락 전 공식 기관 페이지도 함께 확인해주세요.</p>
       </section>

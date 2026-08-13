@@ -215,6 +215,7 @@ button { color: inherit; }
 .contact-check-actions button { color: #8b3825; }
 .contact-caution { margin: 0; color: var(--muted); font-size: 8px; line-height: 1.5; }
 .contact-api-status { display: flex; align-items: center; gap: 9px; min-height: 70px; padding: 14px; color: var(--muted); background: #f3f5ef; border: 1px dashed #bdc7bc; border-radius: 15px; font-size: 10px; line-height: 1.5; }
+.contact-api-status.compact { min-height: 48px; margin-top: 2px; }
 .contact-api-status p { flex: 1; margin: 0; }
 .contact-api-status i { width: 15px; height: 15px; border: 2px solid #b8c7bc; border-top-color: var(--forest); border-radius: 50%; animation: spin .8s linear infinite; }
 .contact-api-status.error { color: #7e3120; background: #fff0eb; border-color: #e4b5a9; }
