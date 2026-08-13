@@ -10,7 +10,9 @@
     "build": "vinext build",
     "start": "vinext start",
     "test": "npm run build && node --experimental-strip-types --test tests/*.test.mjs",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern functions/node_modules --ignore-pattern functions/lib",
+    "functions:build": "npm --prefix functions run build",
+    "functions:test": "npm --prefix functions test"
   },
   "dependencies": {
     "react": "19.2.6",

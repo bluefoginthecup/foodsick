@@ -13,8 +13,10 @@
 - 규칙 기반 클러스터와 동→구→시 재식별 방지 관문
 - 관리자 신고·클러스터·감사기록 화면
 - Firebase Security Rules 초안과 PWA 민감 경로 캐시 차단
+- App Check 기반 Cloud Functions 신고 생성·수정 API
+- Firestore 원자적 중복 방지, 사용자별 요청 제한, 관리자 감사기록
 
-체험 인증과 신고 저장은 현재 브라우저 세션 안에서만 동작한다. 실제 운영에는 `firebase/README.md`에 적힌 Cloud Functions, Kakao OAuth, Firebase Auth, Firestore, App Check 연결이 필요하다.
+화면의 체험 인증과 신고 저장은 현재 브라우저 세션 안에서만 동작한다. 운영용 Firebase 서버 함수는 구현되어 있으며 실제 프로젝트 연결과 배포, Kakao OAuth 설정이 남아 있다.
 
 ## 실행과 검증
 
@@ -25,6 +27,8 @@ npm install
 npm run dev
 npm test
 npm run lint
+npm run functions:build
+npm run functions:test
 ```
 
 환경변수는 `.env.example`을 참고한다. 실제 비밀키는 저장소에 커밋하지 않는다.

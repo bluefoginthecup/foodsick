@@ -39,3 +39,7 @@ yarn-error.log*
 /.wrangler/
 /outputs/
 /work/
+/functions/lib/
+/functions/node_modules/
+.firebase/
+firebase-debug.log

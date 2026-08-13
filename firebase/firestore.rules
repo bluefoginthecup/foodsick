@@ -15,6 +15,11 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /companionObservations/{observationId} {
+      allow read: if isOwner(resource.data) || isAdmin();
+      allow create, update, delete: if false;
+    }
+
     match /{privateCollection}/{document=**} {
       allow read, write: if false;
     }
