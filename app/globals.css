@@ -154,6 +154,9 @@ button { color: inherit; }
 .contact-phone { display: inline-flex; align-items: center; gap: 5px; min-height: 38px; padding: 0 11px; color: white; background: var(--forest); border-radius: 11px; font-size: 11px; font-weight: 900; text-decoration: none; }
 .contact-card.food_safety .contact-phone { background: #a8442d; }
 .contact-source { color: var(--muted); font-size: 8px; font-weight: 800; text-decoration: none; }
+.contact-check-actions { padding-top: 8px; border-top: 1px solid rgba(32,41,37,.1); }
+.contact-check-actions a, .contact-check-actions button { min-height: 30px; padding: 0; color: var(--forest); background: transparent; border: 0; font-size: 8px; font-weight: 850; text-decoration: none; cursor: pointer; }
+.contact-check-actions button { color: #8b3825; }
 .contact-caution { margin: 0; color: var(--muted); font-size: 8px; line-height: 1.5; }
 .contact-api-status { display: flex; align-items: center; gap: 9px; min-height: 70px; padding: 14px; color: var(--muted); background: #f3f5ef; border: 1px dashed #bdc7bc; border-radius: 15px; font-size: 10px; line-height: 1.5; }
 .contact-api-status p { flex: 1; margin: 0; }
@@ -172,6 +175,23 @@ button { color: inherit; }
 .emergency-callout p { display: grid; gap: 3px; margin: 0; font-size: 10px; line-height: 1.45; }
 .emergency-callout span { color: #8e5a4d; font-size: 9px; }
 .emergency-callout a { display: grid; place-items: center; min-height: 40px; padding: 0 12px; color: white; background: #a8442d; border-radius: 11px; font-size: 11px; font-weight: 900; text-decoration: none; white-space: nowrap; }
+.contact-feedback-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: end center; padding: 18px; background: rgba(18,35,29,.5); backdrop-filter: blur(3px); }
+.contact-feedback-dialog { width: min(100%, 520px); max-height: calc(100vh - 36px); padding: 22px; overflow-y: auto; background: var(--paper); border-radius: 24px 24px 18px 18px; box-shadow: 0 24px 80px rgba(18,35,29,.28); }
+.feedback-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.feedback-heading span { color: var(--coral); font-size: 9px; font-weight: 850; }
+.feedback-heading h4, .contact-feedback-dialog > h4 { margin: 4px 0 0; color: var(--ink); font-size: 21px; letter-spacing: -.04em; }
+.feedback-heading > button { width: 34px; height: 34px; color: var(--muted); background: white; border: 1px solid var(--line); border-radius: 50%; font-size: 20px; cursor: pointer; }
+.contact-feedback-dialog dl { display: grid; gap: 7px; margin: 18px 0; padding: 13px; background: white; border-radius: 14px; }
+.contact-feedback-dialog dl div { display: grid; grid-template-columns: 70px 1fr; gap: 10px; }
+.contact-feedback-dialog dt { color: var(--muted); font-size: 9px; }
+.contact-feedback-dialog dd { margin: 0; font-size: 10px; font-weight: 750; text-align: right; }
+.contact-feedback-dialog label { display: grid; gap: 7px; margin-top: 14px; color: #3d4944; font-size: 10px; font-weight: 850; }
+.contact-feedback-dialog select, .contact-feedback-dialog textarea { width: 100%; padding: 12px; background: white; border: 1px solid var(--line); border-radius: 13px; outline: none; }
+.contact-feedback-dialog textarea { min-height: 96px; resize: vertical; }
+.feedback-submit { width: 100%; min-height: 48px; margin-top: 18px; color: white; background: var(--forest); border: 0; border-radius: 14px; font-size: 11px; font-weight: 900; cursor: pointer; }
+.feedback-done { display: grid; place-items: center; width: 54px; height: 54px; margin: 3px auto 18px; color: white; background: var(--forest); border-radius: 18px; font-size: 24px; font-weight: 900; }
+.contact-feedback-dialog > h4, .contact-feedback-dialog > p { text-align: center; }
+.contact-feedback-dialog > p { color: var(--muted); font-size: 11px; line-height: 1.6; }
 .map-privacy-note { display: flex; align-items: flex-start; gap: 8px; margin: 13px 5px 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .map-privacy-note span { color: var(--forest); font-weight: 900; }
 .privacy-explainer { margin-top: 12px; padding: 0 16px; background: rgba(255,255,255,.5); border: 1px solid var(--line); border-radius: 16px; }
@@ -365,6 +385,16 @@ button { color: inherit; }
 .audit-list strong { font-size: 11px; }
 .audit-list span { grid-row: 2; color: var(--muted); font-size: 9px; }
 .audit-list time { grid-column: 2; grid-row: 1 / 3; align-self: center; color: var(--muted); font-size: 8px; }
+.contact-feedback-admin { display: grid; gap: 8px; }
+.contact-feedback-admin > p { padding: 30px; color: var(--muted); background: white; border-radius: 18px; text-align: center; font-size: 11px; }
+.contact-feedback-admin article { padding: 17px; background: white; border: 1px solid var(--line); border-radius: 17px; }
+.contact-feedback-admin article > div { display: flex; justify-content: space-between; gap: 10px; }
+.contact-feedback-admin article span { padding: 5px 7px; color: #863824; background: #ffe2da; border-radius: 999px; font-size: 8px; font-weight: 850; }
+.contact-feedback-admin article time { color: var(--muted); font-size: 8px; }
+.contact-feedback-admin h2 { margin: 12px 0 4px; font-size: 16px; }
+.contact-feedback-admin p { margin: 0; color: var(--muted); font-size: 10px; }
+.contact-feedback-admin blockquote { margin: 12px 0; padding: 11px; color: var(--forest-dark); background: #f3f5ef; border-radius: 10px; font-size: 10px; }
+.contact-feedback-admin a { display: inline-flex; margin-top: 12px; color: var(--forest); font-size: 9px; font-weight: 850; }
 
 @media (min-width: 700px) {
   .app-shell { padding-inline: 32px; }
@@ -378,6 +408,7 @@ button { color: inherit; }
   .admin-region-list { grid-template-columns: 1fr; max-height: 480px; }
   .signal-card { width: 420px; margin: -118px 0 0 26px; }
   .contact-card-grid { grid-template-columns: repeat(2, 1fr); }
+  .contact-feedback-backdrop { place-items: center; }
   .trust-panel { padding: 42px; }
   .trust-panel ul { grid-template-columns: repeat(3, 1fr); }
   .site-footer { flex-direction: row; justify-content: space-between; }

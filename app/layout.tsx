@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "./auth/auth-context";
 import { ReportStoreProvider } from "./reports/report-store";
 import { PwaRegister } from "./pwa-register";
+import { ContactFeedbackProvider } from "./contact-feedback/contact-feedback-store";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:5173";
 
@@ -39,7 +40,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko">
-      <body><AuthProvider><ReportStoreProvider>{children}</ReportStoreProvider></AuthProvider><PwaRegister /></body>
+      <body><AuthProvider><ReportStoreProvider><ContactFeedbackProvider>{children}</ContactFeedbackProvider></ReportStoreProvider></AuthProvider><PwaRegister /></body>
     </html>
   );
 }

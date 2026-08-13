@@ -4,6 +4,14 @@ import { useState } from "react";
 import { useAuth } from "../auth/auth-context";
 import { NativeLink } from "../native-link";
 import { useReports } from "../reports/report-store";
+import { useContactFeedback } from "../contact-feedback/contact-feedback-store";
+
+const feedbackReasonLabel = {
+  wrong_phone: "전화 연결 안 됨",
+  outdated: "이전·폐지 정보",
+  wrong_office: "관할 기관·부서 오류",
+  other: "그 밖의 문제",
+} as const;
 
 const demoReports = [
   { id: "demo-1", restaurant: "교동면옥 용인영덕점", region: "용인시 기흥구 영덕동", category: "냉면", symptoms: "설사, 복통", status: "submitted" },
@@ -14,7 +22,8 @@ const demoReports = [
 export default function AdminPage() {
   const { user } = useAuth();
   const { reports, auditEvents, setReportStatus } = useReports();
-  const [activeTab, setActiveTab] = useState<"reports" | "clusters" | "audit">("reports");
+  const { feedback } = useContactFeedback();
+  const [activeTab, setActiveTab] = useState<"reports" | "clusters" | "contacts" | "audit">("reports");
 
   if (!user || user.role !== "admin") {
     return (
@@ -58,6 +67,7 @@ export default function AdminPage() {
       <nav className="admin-tabs" aria-label="관리자 메뉴">
         <button className={activeTab === "reports" ? "active" : ""} onClick={() => setActiveTab("reports")} type="button">신고</button>
         <button className={activeTab === "clusters" ? "active" : ""} onClick={() => setActiveTab("clusters")} type="button">클러스터</button>
+        <button className={activeTab === "contacts" ? "active" : ""} onClick={() => setActiveTab("contacts")} type="button">연락처 오류 {feedback.length ? `(${feedback.length})` : ""}</button>
         <button className={activeTab === "audit" ? "active" : ""} onClick={() => setActiveTab("audit")} type="button">감사기록</button>
       </nav>
 
@@ -94,6 +104,20 @@ export default function AdminPage() {
           </dl>
           <div className="privacy-check"><strong>공개 전 개인정보 관문</strong><span>동일 업종 업소 수 기준 충족 · 동 단위 공개 가능</span></div>
           <p className="official-warning">공식 근거가 없으므로 official_confirmed 상태로 변경할 수 없습니다.</p>
+        </section>
+      )}
+
+      {activeTab === "contacts" && (
+        <section className="contact-feedback-admin" aria-label="연락처 오류 신고 목록">
+          {feedback.length === 0 ? <p>접수된 연락처 오류 신고가 없습니다.</p> : feedback.map((item) => (
+            <article key={item.id}>
+              <div><span>{feedbackReasonLabel[item.reason]}</span><time>{new Date(item.createdAt).toLocaleString("ko-KR")}</time></div>
+              <h2>{item.contact.name}</h2>
+              <p>{item.region} · {item.contact.phone}</p>
+              {item.note && <blockquote>{item.note}</blockquote>}
+              <a href={item.contact.sourceUrl} rel="noreferrer" target="_blank">공식 출처 확인 ↗</a>
+            </article>
+          ))}
         </section>
       )}
 

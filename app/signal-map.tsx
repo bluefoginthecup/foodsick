@@ -10,6 +10,8 @@ import {
   type RegionalContactsError,
   type RegionalContactsResponse,
 } from "./regional-contacts";
+import { useContactFeedback, type ContactFeedbackReason } from "./contact-feedback/contact-feedback-store";
+import { submitFirebaseContactFeedback } from "./firebase/contact-feedback-api";
 
 type MapLevel = "sido" | "city" | "district" | "dong";
 type BoundaryFeature = AdmFeature<SidoProperties | SggProperties | EmdProperties>;
@@ -26,6 +28,10 @@ function mapSearchUrl(query: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
+function googleSearchUrl(query: string) {
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
 type ContactState =
   | { status: "idle" | "loading"; data: null; message: string }
   | { status: "loaded"; data: RegionalContactsResponse; message: string }
@@ -39,6 +45,12 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
     message: "시·군·구를 선택하면 최신 연락처를 조회합니다.",
   });
   const [refreshKey, setRefreshKey] = useState(0);
+  const { submitContactFeedback } = useContactFeedback();
+  const [feedbackContact, setFeedbackContact] = useState<RegionalContactsResponse["contacts"][number] | null>(null);
+  const [feedbackReason, setFeedbackReason] = useState<ContactFeedbackReason>("wrong_phone");
+  const [feedbackNote, setFeedbackNote] = useState("");
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackSending, setFeedbackSending] = useState(false);
   const medicalLinks = [
     { label: "대학병원 찾기", query: `${region} 대학병원` },
     { label: "응급실 찾기", query: `${region} 응급실` },
@@ -80,6 +92,37 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
     ? `${new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(contactState.data.fetchedAt))} API 조회`
     : contactState.status === "loading" ? "API 조회 중" : "지역 선택 후 자동 조회";
 
+  const closeFeedback = () => {
+    setFeedbackContact(null);
+    setFeedbackReason("wrong_phone");
+    setFeedbackNote("");
+    setFeedbackSubmitted(false);
+  };
+
+  const submitFeedback = async () => {
+    if (!feedbackContact) return;
+    const input = {
+      region,
+      contact: {
+        kind: feedbackContact.kind,
+        name: feedbackContact.name,
+        phone: feedbackContact.phone,
+        sourceUrl: feedbackContact.sourceUrl,
+      },
+      reason: feedbackReason,
+      note: feedbackNote.trim().slice(0, 300),
+    };
+    setFeedbackSending(true);
+    try {
+      await submitFirebaseContactFeedback(input);
+    } catch (error) {
+      console.error("Central contact feedback submission failed; retained in the local review queue", error);
+    }
+    submitContactFeedback(input);
+    setFeedbackSending(false);
+    setFeedbackSubmitted(true);
+  };
+
   return (
     <aside className="regional-help" aria-labelledby="regional-help-title">
       <div className="regional-help-heading">
@@ -102,9 +145,13 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
                 <span className="contact-kind">{contact.label}</span>
                 <strong>{contact.name}</strong>
                 <p>{contact.address}</p>
-                <div>
+                <div className="contact-primary-actions">
                   <a className="contact-phone" href={phoneHref(contact.phone)}><span aria-hidden="true">☎</span>{contact.phone}</a>
                   <a className="contact-source" href={contact.sourceUrl} rel="noreferrer" target="_blank">{contact.sourceLabel ?? "장소 정보"} ↗</a>
+                </div>
+                <div className="contact-check-actions">
+                  <a href={googleSearchUrl(`${region} ${contact.name} ${contact.phone} 공식 전화번호`)} rel="noreferrer" target="_blank">구글로 다시 확인 ↗</a>
+                  <button onClick={() => setFeedbackContact(contact)} type="button">연락처 오류 신고</button>
                 </div>
               </article>
             ))}
@@ -117,6 +164,7 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
           </div>
         )}
         <p className="contact-caution">시청·구청·보건소는 카카오 Local API, 식품위생 담당은 행정안전부 조직정보와 지자체 공식 직원안내에서 6시간마다 다시 확인합니다.</p>
+        <p className="contact-caution">구글 검색은 AI 요약과 검색결과를 통한 보조 확인 수단이며, 최종 연락 전 공식 기관 페이지도 함께 확인해주세요.</p>
       </section>
 
       <section aria-labelledby="medical-links-title">
@@ -137,6 +185,38 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
         <p><strong>심한 호흡곤란·의식 저하 등 위급한 증상은 즉시 119에 연락하세요.</strong><span>검색 결과와 실제 진료 가능 여부는 다를 수 있으니 방문 전에 전화로 확인해주세요.</span></p>
         <a href="tel:119">119 전화</a>
       </div>
+
+      {feedbackContact && (
+        <div aria-labelledby="contact-feedback-title" aria-modal="true" className="contact-feedback-backdrop" role="dialog">
+          <form className="contact-feedback-dialog" onSubmit={(event) => { event.preventDefault(); void submitFeedback(); }}>
+            {feedbackSubmitted ? (
+              <>
+                <span className="feedback-done" aria-hidden="true">✓</span>
+                <h4 id="contact-feedback-title">관리자 검토 목록에 접수했습니다</h4>
+                <p>공식 출처를 다시 확인한 뒤 연락처를 갱신하겠습니다.</p>
+                <button className="feedback-submit" onClick={closeFeedback} type="button">확인</button>
+              </>
+            ) : (
+              <>
+                <div className="feedback-heading"><div><span>연락처 오류 신고</span><h4 id="contact-feedback-title">{feedbackContact.name}</h4></div><button aria-label="닫기" onClick={closeFeedback} type="button">×</button></div>
+                <dl><div><dt>선택 지역</dt><dd>{region}</dd></div><div><dt>현재 번호</dt><dd>{feedbackContact.phone}</dd></div></dl>
+                <label>어떤 문제가 있나요?
+                  <select onChange={(event) => setFeedbackReason(event.target.value as ContactFeedbackReason)} value={feedbackReason}>
+                    <option value="wrong_phone">전화번호가 연결되지 않음</option>
+                    <option value="outdated">이전·폐지된 정보로 보임</option>
+                    <option value="wrong_office">관할 기관·부서가 다름</option>
+                    <option value="other">그 밖의 문제</option>
+                  </select>
+                </label>
+                <label>추가 설명 (선택)
+                  <textarea maxLength={300} onChange={(event) => setFeedbackNote(event.target.value)} placeholder="확인한 내용이나 올바른 연락처를 알려주세요. 개인정보는 입력하지 마세요." value={feedbackNote} />
+                </label>
+                <button className="feedback-submit" disabled={feedbackSending} type="submit">{feedbackSending ? "접수 중…" : "관리자에게 신고하기"}</button>
+              </>
+            )}
+          </form>
+        </div>
+      )}
     </aside>
   );
 }

@@ -27,6 +27,7 @@ test("renders the Korean mobile-first foundation", async () => {
   assert.match(html, /식중독 신고·문의/);
   assert.match(html, /지역 선택 후 자동 조회/);
   assert.match(html, /행정안전부 조직정보와 지자체 공식 직원안내에서 6시간마다 다시 확인합니다/);
+  assert.match(html, /구글 검색은 AI 요약과 검색결과를 통한 보조 확인 수단/);
   assert.doesNotMatch(html, /031-6193-6303/);
   assert.doesNotMatch(html, /교동면옥|상호명|도로명주소/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
