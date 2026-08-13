@@ -33,7 +33,7 @@ type ContactState =
 
 function RegionalHelp({ region, selection }: { region: string; selection: RegionSelection }) {
   const { sido, city, district, dong } = selection;
-  const [contactState, setContactState] = useState<ContactState>({
+  const [fetchedContactState, setContactState] = useState<ContactState>({
     status: "idle",
     data: null,
     message: "시·군·구를 선택하면 최신 연락처를 조회합니다.",
@@ -69,6 +69,12 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
     });
     return () => controller.abort();
   }, [city, district, dong, refreshKey, sido]);
+
+  const contactState: ContactState = !sido || !city
+    ? { status: "idle", data: null, message: "시·군·구를 선택하면 최신 연락처를 조회합니다." }
+    : fetchedContactState.status === "loaded" && fetchedContactState.data.region !== region
+      ? { status: "loading", data: null, message: "API에서 최신 연락처를 불러오는 중입니다." }
+      : fetchedContactState;
 
   const fetchedLabel = contactState.status === "loaded"
     ? `${new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(contactState.data.fetchedAt))} API 조회`
