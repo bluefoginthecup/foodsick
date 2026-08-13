@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { db } from "./firebase.js";
 
-const db = getFirestore();
 const options = { region: "asia-northeast3", enforceAppCheck: false };
 const reasons = new Set(["wrong_phone", "outdated", "wrong_office", "other"]);
 

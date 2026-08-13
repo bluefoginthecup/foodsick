@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
-import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { requireAdmin, requireUid } from "./common.js";
 import { createDedupeKey, rateLimitBucket } from "./domain/keys.js";
 import { InputError, validateReportInput } from "./domain/report.js";
+import { db } from "./firebase.js";
 
-const db = getFirestore();
 const dedupeSecret = defineSecret("DEDUPE_HMAC_SECRET");
 const callableOptions = { region: "asia-northeast3", enforceAppCheck: true, secrets: [dedupeSecret] };
 

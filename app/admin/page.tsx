@@ -5,6 +5,7 @@ import { useAuth } from "../auth/auth-context";
 import { NativeLink } from "../native-link";
 import { useReports } from "../reports/report-store";
 import { useContactFeedback } from "../contact-feedback/contact-feedback-store";
+import { LawFirmReviewPanel } from "./law-firm-review";
 
 const feedbackReasonLabel = {
   wrong_phone: "전화 연결 안 됨",
@@ -23,7 +24,7 @@ export default function AdminPage() {
   const { user } = useAuth();
   const { reports, auditEvents, setReportStatus } = useReports();
   const { feedback } = useContactFeedback();
-  const [activeTab, setActiveTab] = useState<"reports" | "clusters" | "contacts" | "audit">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "clusters" | "contacts" | "law_firms" | "audit">("reports");
 
   if (!user || user.role !== "admin") {
     return (
@@ -68,6 +69,7 @@ export default function AdminPage() {
         <button className={activeTab === "reports" ? "active" : ""} onClick={() => setActiveTab("reports")} type="button">신고</button>
         <button className={activeTab === "clusters" ? "active" : ""} onClick={() => setActiveTab("clusters")} type="button">클러스터</button>
         <button className={activeTab === "contacts" ? "active" : ""} onClick={() => setActiveTab("contacts")} type="button">연락처 오류 {feedback.length ? `(${feedback.length})` : ""}</button>
+        <button className={activeTab === "law_firms" ? "active" : ""} onClick={() => setActiveTab("law_firms")} type="button">로펌 등록</button>
         <button className={activeTab === "audit" ? "active" : ""} onClick={() => setActiveTab("audit")} type="button">감사기록</button>
       </nav>
 
@@ -120,6 +122,8 @@ export default function AdminPage() {
           ))}
         </section>
       )}
+
+      {activeTab === "law_firms" && <LawFirmReviewPanel />}
 
       {activeTab === "audit" && (
         <section className="audit-list">

@@ -51,9 +51,14 @@ export default function Home() {
         </ul>
       </section>
 
+      <section className="legal-entry" aria-labelledby="legal-entry-title">
+        <div><p className="eyebrow">피해 이후의 다음 단계</p><h2 id="legal-entry-title">법률 대응·판례·상담할 곳을 한 번에</h2><p>증거를 어떻게 정리할지 확인하고, 공식 판례와 검증된 식중독 사건 수임경력을 찾아보세요.</p></div>
+        <div><NativeLink href="/law-help#guide">대응 가이드</NativeLink><NativeLink href="/law-help#precedents">판례 보기</NativeLink><NativeLink className="legal-entry-primary" href="/law-help#firms">로펌 찾기</NativeLink></div>
+      </section>
+
       <footer className="site-footer">
         <p>의료 진단 서비스가 아닙니다. 심한 증상은 의료기관에 문의하세요.</p>
-        <span>Firebase 백엔드 기반 · 8단계</span>
+        <span>Firebase·D1 백엔드 기반 · 9단계</span>
       </footer>
     </main>
   );

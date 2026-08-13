@@ -1,7 +1,6 @@
-import { getFirestore } from "firebase-admin/firestore";
 import { onCall } from "firebase-functions/v2/https";
+import { db } from "./firebase.js";
 
-const db = getFirestore();
 
 export const getPublicSignals = onCall({ region: "asia-northeast3", enforceAppCheck: true }, async () => {
   const snapshot = await db.collection("publicSignals").where("publishUntil", ">", new Date()).orderBy("publishUntil", "asc").limit(200).get();

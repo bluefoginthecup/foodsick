@@ -47,6 +47,31 @@ test("renders Kakao login without requesting profile data", async () => {
   assert.match(html, /체험 모드/);
 });
 
+test("renders the legal response, precedent, and verified law-firm directory", async () => {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("law-help-test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  const response = await worker.fetch(new Request("http://localhost/law-help", { headers: { accept: "text/html" } }), { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } }, { waitUntil() {}, passThroughOnException() {} });
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /상담 전에 준비하세요/);
+  assert.match(html, /2018다260299/);
+  assert.match(html, /식중독 사건 경험이 확인된 곳/);
+  assert.doesNotMatch(html, /승소 보장|식중독 전문 로펌/);
+});
+
+test("renders private evidence fields for voluntary law-firm registration", async () => {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("firm-register-test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  const response = await worker.fetch(new Request("http://localhost/law-firms/register", { headers: { accept: "text/html" } }), { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } }, { waitUntil() {}, passThroughOnException() {} });
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /사건번호로 확인/);
+  assert.match(html, /익명 정보로 제출/);
+  assert.match(html, /사건번호와 변호사 등록번호는 관리자 검증용/);
+});
+
 test("keeps the report form behind authentication", async () => {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("report-test", `${process.pid}-${Date.now()}`);

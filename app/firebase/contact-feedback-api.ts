@@ -2,10 +2,10 @@
 
 import { httpsCallable } from "firebase/functions";
 import type { ContactFeedback } from "../contact-feedback/contact-feedback-store";
-import { firebaseBackendEnabled, getFirebaseClient } from "./client";
+import { getFirebaseClient } from "./client";
 
 export async function submitFirebaseContactFeedback(feedback: Omit<ContactFeedback, "id" | "status" | "createdAt">) {
-  if (!firebaseBackendEnabled()) return false;
+  if (process.env.NEXT_PUBLIC_CONTACT_FEEDBACK_BACKEND !== "firebase") return false;
   const firebase = getFirebaseClient();
   if (!firebase) return false;
   const call = httpsCallable<Record<string, string>, { ok: boolean }>(firebase.functions, "submitContactFeedback");
