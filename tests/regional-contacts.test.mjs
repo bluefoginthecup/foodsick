@@ -1,12 +1,34 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fetchKakaoRegionalContacts } from "../app/api/regional-contacts/kakao.ts";
+import { contactQueries, fetchKakaoRegionalContacts } from "../app/api/regional-contacts/kakao.ts";
 import {
   fetchOfficialFoodSafetyContact,
   parseFoodSafetyStaff,
   parseOrganizations,
 } from "../app/api/regional-contacts/official-organizations.ts";
 import { phoneHref } from "../app/regional-contacts.ts";
+import { contactCacheFreshness } from "../app/api/regional-contacts/cache-policy.ts";
+import { expectedRegionalContactSlots } from "../app/regional-contact-slots.ts";
+
+test("keeps regional contact data fresh for six hours and available as stale fallback for thirty days", () => {
+  const now = Date.UTC(2026, 7, 13, 12);
+  assert.equal(contactCacheFreshness(new Date(now - 5 * 60 * 60 * 1000), now), "fresh");
+  assert.equal(contactCacheFreshness(new Date(now - 7 * 60 * 60 * 1000), now), "stale");
+  assert.equal(contactCacheFreshness(new Date(now - 31 * 24 * 60 * 60 * 1000), now), "expired");
+});
+
+test("separates metropolitan city hall and district office searches", () => {
+  const queries = contactQueries({ sido: "울산광역시", city: "중구", district: "중구", dong: "" });
+  assert.match(queries.find((query) => query.kind === "city_office").query, /울산광역시청/);
+  assert.match(queries.find((query) => query.kind === "district_office").query, /중구청/);
+});
+
+test("keeps expected institution cards even when an API result is missing", () => {
+  const selection = { sido: "울산광역시", city: "중구", district: "중구", dong: "" };
+  const slots = expectedRegionalContactSlots(selection, []);
+  assert.deepEqual(slots.map((slot) => slot.kind), ["city_office", "district_office", "health_center", "food_safety"]);
+  assert.ok(slots.every((slot) => slot.contact === null));
+});
 
 const selection = { sido: "경기도", city: "용인시", district: "기흥구", dong: "영덕1동" };
 

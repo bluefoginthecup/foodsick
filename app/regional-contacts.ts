@@ -21,6 +21,8 @@ export type RegionalContactsResponse = {
   region: string;
   provider: "kakao-local+official-organizations";
   fetchedAt: string;
+  cache: "fresh" | "refreshed" | "stale";
+  cacheAgeSeconds: number;
   contacts: RegionalContact[];
 };
 

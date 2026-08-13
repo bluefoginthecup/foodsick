@@ -12,6 +12,15 @@ import {
 } from "./regional-contacts";
 import { useContactFeedback, type ContactFeedbackReason } from "./contact-feedback/contact-feedback-store";
 import { submitFirebaseContactFeedback } from "./firebase/contact-feedback-api";
+import {
+  buildAdministrativeSearchIndex,
+  cityName,
+  districtName,
+  regionMatches,
+  searchAdministrativeRegions,
+  selectedRegionLabel,
+} from "./administrative-search";
+import { expectedRegionalContactSlots } from "./regional-contact-slots";
 
 type MapLevel = "sido" | "city" | "district" | "dong";
 type BoundaryFeature = AdmFeature<SidoProperties | SggProperties | EmdProperties>;
@@ -45,6 +54,7 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
     message: "시·군·구를 선택하면 최신 연락처를 조회합니다.",
   });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [contactRefreshing, setContactRefreshing] = useState(false);
   const { submitContactFeedback } = useContactFeedback();
   const [feedbackContact, setFeedbackContact] = useState<RegionalContactsResponse["contacts"][number] | null>(null);
   const [feedbackReason, setFeedbackReason] = useState<ContactFeedbackReason>("wrong_phone");
@@ -61,24 +71,40 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
     const controller = new AbortController();
     if (!sido || !city) return () => controller.abort();
     const params = new URLSearchParams({ sido, city, district, dong });
+    const endpoint = `/api/regional-contacts?${params.toString()}`;
     queueMicrotask(() => {
-      if (!controller.signal.aborted) setContactState({ status: "loading", data: null, message: "API에서 최신 연락처를 불러오는 중입니다." });
+      if (!controller.signal.aborted) {
+        setContactRefreshing(false);
+        setContactState({ status: "loading", data: null, message: "저장된 연락처를 확인하는 중입니다." });
+      }
     });
-    void fetch(`/api/regional-contacts?${params.toString()}`, {
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    }).then(async (response) => {
-      const payload = await response.json() as RegionalContactsResponse | RegionalContactsError;
-      if (!response.ok || "error" in payload) throw new Error("message" in payload ? payload.message : "연락처를 불러오지 못했습니다.");
-      setContactState({ status: "loaded", data: payload, message: "" });
-    }).catch((error: unknown) => {
-      if (controller.signal.aborted) return;
-      setContactState({
-        status: "error",
-        data: null,
-        message: error instanceof Error ? error.message : "최신 연락처를 불러오지 못했습니다.",
-      });
-    });
+    void (async () => {
+      try {
+        const response = await fetch(endpoint, { headers: { Accept: "application/json" }, signal: controller.signal });
+        const payload = await response.json() as RegionalContactsResponse | RegionalContactsError;
+        if (!response.ok || "error" in payload) throw new Error("message" in payload ? payload.message : "연락처를 불러오지 못했습니다.");
+        setContactState({ status: "loaded", data: payload, message: "" });
+        if (payload.cache !== "stale") return;
+
+        setContactRefreshing(true);
+        try {
+          const refreshed = await fetch(`${endpoint}&refresh=1`, { headers: { Accept: "application/json" }, signal: controller.signal });
+          const refreshedPayload = await refreshed.json() as RegionalContactsResponse | RegionalContactsError;
+          if (refreshed.ok && !("error" in refreshedPayload)) setContactState({ status: "loaded", data: refreshedPayload, message: "" });
+        } catch (error) {
+          if (!controller.signal.aborted) console.error("Regional contact background refresh failed", error);
+        } finally {
+          if (!controller.signal.aborted) setContactRefreshing(false);
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setContactState({
+          status: "error",
+          data: null,
+          message: error instanceof Error ? error.message : "최신 연락처를 불러오지 못했습니다.",
+        });
+      }
+    })();
     return () => controller.abort();
   }, [city, district, dong, refreshKey, sido]);
 
@@ -87,10 +113,11 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
     : fetchedContactState.status === "loaded" && fetchedContactState.data.region !== region
       ? { status: "loading", data: null, message: "API에서 최신 연락처를 불러오는 중입니다." }
       : fetchedContactState;
+  const contactSlots = expectedRegionalContactSlots(selection, contactState.status === "loaded" ? contactState.data.contacts : []);
 
   const fetchedLabel = contactState.status === "loaded"
-    ? `${new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(contactState.data.fetchedAt))} API 조회`
-    : contactState.status === "loading" ? "API 조회 중" : "지역 선택 후 자동 조회";
+    ? `${new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(contactState.data.fetchedAt))} ${contactRefreshing ? "저장 정보 · 갱신 중" : contactState.data.cache === "fresh" ? "확인 · 캐시" : contactState.data.cache === "stale" ? "저장 정보" : "API 갱신"}`
+    : contactState.status === "loading" ? "캐시 확인 중" : "지역 선택 후 자동 조회";
 
   const closeFeedback = () => {
     setFeedbackContact(null);
@@ -138,32 +165,40 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
           <div><span aria-hidden="true">!</span><h4 id="government-links-title">식중독 신고·문의</h4></div>
           <small>{fetchedLabel}</small>
         </div>
-        {contactState.status === "loaded" && contactState.data.contacts.length > 0 ? (
-          <div className="contact-card-grid">
-            {contactState.data.contacts.map((contact) => (
-              <article className={`contact-card ${contact.kind}`} key={`${contact.kind}-${contact.phone}`}>
-                <span className="contact-kind">{contact.label}</span>
-                <strong>{contact.name}</strong>
-                <p>{contact.address}</p>
-                <div className="contact-primary-actions">
-                  <a className="contact-phone" href={phoneHref(contact.phone)}><span aria-hidden="true">☎</span>{contact.phone}</a>
-                  <a className="contact-source" href={contact.sourceUrl} rel="noreferrer" target="_blank">{contact.sourceLabel ?? "장소 정보"} ↗</a>
-                </div>
-                <div className="contact-check-actions">
-                  <a href={googleSearchUrl(`${region} ${contact.name} ${contact.phone} 공식 전화번호`)} rel="noreferrer" target="_blank">구글로 다시 확인 ↗</a>
-                  <button onClick={() => setFeedbackContact(contact)} type="button">연락처 오류 신고</button>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
+        {(contactState.status === "loading" || contactState.status === "error") && (
           <div className={`contact-api-status ${contactState.status}`} aria-live="polite">
             {contactState.status === "loading" && <i aria-hidden="true" />}
-            <p>{contactState.status === "loaded" ? "선택 지역에서 전화번호가 확인된 관할기관이 없습니다." : contactState.message}</p>
+            <p>{contactState.message}</p>
             {contactState.status === "error" && <button onClick={() => setRefreshKey((value) => value + 1)} type="button">다시 불러오기</button>}
           </div>
         )}
-        <p className="contact-caution">시청·구청·보건소는 카카오 Local API, 식품위생 담당은 행정안전부 조직정보와 지자체 공식 직원안내에서 6시간마다 다시 확인합니다.</p>
+        <div className="contact-card-grid">
+          {contactSlots.map((slot) => slot.contact ? (
+            <article className={`contact-card ${slot.kind}`} key={slot.kind}>
+              <span className="contact-kind">{slot.label}</span>
+              <strong>{slot.contact.name}</strong>
+              <p>{slot.contact.address}</p>
+              <div className="contact-primary-actions">
+                <a className="contact-phone" href={phoneHref(slot.contact.phone)}><span aria-hidden="true">☎</span>{slot.contact.phone}</a>
+                <a className="contact-source" href={slot.contact.sourceUrl} rel="noreferrer" target="_blank">{slot.contact.sourceLabel ?? "장소 정보"} ↗</a>
+              </div>
+              <div className="contact-check-actions">
+                <a href={googleSearchUrl(`${region} ${slot.contact.name} ${slot.contact.phone} 공식 전화번호`)} rel="noreferrer" target="_blank">구글로 다시 확인 ↗</a>
+                <button onClick={() => setFeedbackContact(slot.contact)} type="button">연락처 오류 신고</button>
+              </div>
+            </article>
+          ) : (
+            <article className={`contact-card ${slot.kind} unavailable`} key={slot.kind}>
+              <span className="contact-kind">{slot.label}</span>
+              <strong>{slot.expectedName}</strong>
+              <p>{contactState.status === "loading" ? "최신 전화번호를 확인하고 있습니다." : "API에서 전화번호를 확인하지 못했습니다."}</p>
+              {contactState.status !== "loading" && (
+                <a className="contact-google-search" href={googleSearchUrl(`${region} ${slot.expectedName} 대표전화 공식`)} rel="noreferrer" target="_blank">구글에서 전화번호 확인 ↗</a>
+              )}
+            </article>
+          ))}
+        </div>
+        <p className="contact-caution">확인한 연락처는 지역별 서버 캐시에 저장해 즉시 표시하고, 6시간이 지나면 카카오 Local API·행정안전부 조직정보·지자체 공식 직원안내에서 새로 확인합니다.</p>
         <p className="contact-caution">구글 검색은 AI 요약과 검색결과를 통한 보조 확인 수단이며, 최종 연락 전 공식 기관 페이지도 함께 확인해주세요.</p>
       </section>
 
@@ -252,6 +287,41 @@ function SignalCard({ signal }: { signal: PublicSignal }) {
   );
 }
 
+function RegionSummaryCard({ region, signals }: { region: string; signals: PublicSignal[] }) {
+  const totals = signals.reduce((sum, signal) => ({
+    independentReports: sum.independentReports + signal.independentReports,
+    companionSymptoms: sum.companionSymptoms + signal.companionSymptoms,
+    medicalVisits: sum.medicalVisits + signal.medicalVisits,
+  }), { independentReports: 0, companionSymptoms: 0, medicalVisits: 0 });
+  const categories = [...new Set(signals.map((signal) => signal.category))];
+  const latest = signals.map((signal) => signal.observedAt).sort().at(-1);
+
+  return (
+    <article className={`signal-card region-summary ${signals.length ? "" : "empty-region"}`} aria-live="polite">
+      <div className="signal-card-heading">
+        <div>
+          <span className="privacy-label">{signals.length ? "공개 기준 충족 신호 있음" : "현재 공개 신호 없음"}</span>
+          <h3>{region}</h3>
+          <p>{signals.length ? `${categories.join(" · ")} · ${latest ? formatObservedAt(latest) : ""} 기준` : "선택한 기간과 음식 유형 기준"}</p>
+        </div>
+        <span className={`trend-badge ${signals.some((signal) => signal.trend === "increased") ? "increased" : "steady"}`}>
+          {signals.length ? `신호 ${signals.length}개` : "0건"}
+        </span>
+      </div>
+      <dl className="signal-stats">
+        <div><dt>독립 신고</dt><dd>{totals.independentReports}<small>건</small></dd></div>
+        <div><dt>동행 증상자</dt><dd>{totals.companionSymptoms}<small>명</small></dd></div>
+        <div><dt>병원 방문</dt><dd>{totals.medicalVisits}<small>건</small></dd></div>
+      </dl>
+      <p className="signal-disclaimer">
+        {signals.length
+          ? "이 수치는 선택 지역 안에서 공개 기준을 충족한 신호의 합계이며 특정 업소의 식중독 발생을 의미하지 않습니다."
+          : "0건은 신고가 전혀 없다는 뜻이 아니라, 현재 선택 조건에서 공개 기준을 충족한 신호가 없다는 뜻입니다."}
+      </p>
+    </article>
+  );
+}
+
 function geometryRings(feature: BoundaryFeature) {
   const geometry = feature.geometry;
   return geometry.type === "Polygon" ? geometry.coordinates : geometry.coordinates.flat();
@@ -289,17 +359,8 @@ function projectedShape(shape: RegionShape, bounds: NonNullable<ReturnType<typeo
   return { path: paths, labelX: (label.minX + label.maxX) / 2, labelY: (label.minY + label.maxY) / 2 };
 }
 
-function cityName(value: string) {
-  return value.match(/^(.+?시)/)?.[1] ?? value;
-}
-
-function districtName(value: string, city: string) {
-  const remainder = value.replace(city, "").trim();
-  return remainder || city;
-}
-
-function countSignals(signals: PublicSignal[], level: MapLevel, name: string) {
-  return signals.filter((signal) => signal[level] === name).length;
+function countSignals(signals: PublicSignal[], level: MapLevel, name: string, selection: RegionSelection) {
+  return signals.filter((signal) => signal[level] === name && regionMatches(signal, selection)).length;
 }
 
 function makeShapes(data: BoundaryData | null, level: MapLevel, selection: RegionSelection, signals: PublicSignal[]): RegionShape[] {
@@ -321,7 +382,7 @@ function makeShapes(data: BoundaryData | null, level: MapLevel, selection: Regio
     id: `${level}-${name}`,
     name,
     features,
-    signalCount: countSignals(signals, level, name),
+    signalCount: countSignals(signals, level, name, selection),
   })).sort((a, b) => b.signalCount - a.signalCount || a.name.localeCompare(b.name, "ko"));
 }
 
@@ -334,6 +395,8 @@ export function SignalMap() {
   const [activeId, setActiveId] = useState(publicSignals[0].id);
   const [boundaries, setBoundaries] = useState<BoundaryData | null>(null);
   const [boundaryError, setBoundaryError] = useState(false);
+  const [regionQuery, setRegionQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -357,20 +420,39 @@ export function SignalMap() {
     && (category === "전체" || signal.category === category)), [category, endDate, startDate]);
   const shapes = useMemo(() => makeShapes(boundaries, level, selection, visibleSignals), [boundaries, level, selection, visibleSignals]);
   const bounds = useMemo(() => shapeBounds(shapes), [shapes]);
-  const activeSignal = visibleSignals.find((signal) => signal.id === activeId) ?? visibleSignals[0];
+  const searchIndex = useMemo(() => boundaries ? buildAdministrativeSearchIndex(boundaries) : [], [boundaries]);
+  const searchResults = useMemo(() => searchAdministrativeRegions(searchIndex, regionQuery), [regionQuery, searchIndex]);
+  const selectedSignals = useMemo(() => selection.sido ? visibleSignals.filter((signal) => regionMatches(signal, selection)) : [], [selection, visibleSignals]);
+  const activeSignal = !selection.sido ? visibleSignals.find((signal) => signal.id === activeId) ?? visibleSignals[0] : undefined;
   const helpSelection = selection.sido ? selection : activeSignal ? {
     sido: activeSignal.sido,
     city: activeSignal.city,
     district: activeSignal.district,
     dong: activeSignal.dong,
   } : EMPTY_SELECTION;
-  const selectedRegion = [helpSelection.sido, helpSelection.city, helpSelection.district, helpSelection.dong].filter(Boolean).join(" ") || "대한민국";
+  const selectedRegion = selectedRegionLabel(helpSelection) || "대한민국";
+
+  const selectSearchResult = (result: (typeof searchResults)[number]) => {
+    setSelection(result.selection);
+    setLevel(result.targetLevel);
+    setRegionQuery(result.label);
+    setSearchOpen(false);
+    const matchingSignal = visibleSignals.find((signal) => regionMatches(signal, result.selection));
+    if (matchingSignal) setActiveId(matchingSignal.id);
+  };
 
   const moveTo = (shape: RegionShape) => {
     const matchingSignal = visibleSignals.find((signal) => signal[level] === shape.name);
     if (matchingSignal) setActiveId(matchingSignal.id);
     if (level === "sido") { setSelection({ sido: shape.name, city: "", district: "", dong: "" }); setLevel("city"); }
-    if (level === "city") { setSelection((current) => ({ ...current, city: shape.name, district: "", dong: "" })); setLevel("district"); }
+    if (level === "city") {
+      const oneTier = shape.features.every((feature) => {
+        const sgg = (feature.properties as SggProperties).sggnm;
+        return districtName(sgg, cityName(sgg)) === cityName(sgg);
+      });
+      setSelection((current) => ({ ...current, city: shape.name, district: oneTier ? shape.name : "", dong: "" }));
+      setLevel(oneTier ? "dong" : "district");
+    }
     if (level === "district") { setSelection((current) => ({ ...current, district: shape.name, dong: "" })); setLevel("dong"); }
     if (level === "dong") setSelection((current) => ({ ...current, dong: shape.name }));
   };
@@ -403,6 +485,35 @@ export function SignalMap() {
         <span className="result-count">공개 신호 {visibleSignals.length}건</span>
       </div>
 
+      <div className="region-search">
+        <label htmlFor="region-search-input">행정구역 검색</label>
+        <div className="region-search-control">
+          <span aria-hidden="true">⌕</span>
+          <input
+            aria-autocomplete="list"
+            aria-controls="region-search-results"
+            aria-expanded={searchOpen && Boolean(regionQuery.trim())}
+            autoComplete="off"
+            id="region-search-input"
+            onChange={(event) => { setRegionQuery(event.target.value); setSearchOpen(true); }}
+            onFocus={() => setSearchOpen(true)}
+            placeholder="예: 울산 중구, 서울 종로구, 용인 기흥구"
+            role="combobox"
+            value={regionQuery}
+          />
+          {regionQuery && <button aria-label="검색어 지우기" onClick={() => { setRegionQuery(""); setSearchOpen(false); }} type="button">×</button>}
+        </div>
+        {searchOpen && regionQuery.trim() && (
+          <div className="region-search-results" id="region-search-results" role="listbox">
+            {searchResults.length ? searchResults.map((result) => (
+              <button aria-selected="false" key={result.id} onClick={() => selectSearchResult(result)} role="option" type="button">
+                <span>{result.label}</span><small>{result.detail}</small>
+              </button>
+            )) : <p>일치하는 최신 행정구역이 없습니다.</p>}
+          </div>
+        )}
+      </div>
+
       <nav className="map-breadcrumb" aria-label="행정구역 단계">
         <button aria-current={level === "sido" ? "page" : undefined} onClick={() => resetTo("sido")} type="button">시/도</button>
         {selection.sido && <><span>›</span><button aria-current={level === "city" ? "page" : undefined} onClick={() => resetTo("city")} type="button">{selection.sido}</button></>}
@@ -416,7 +527,7 @@ export function SignalMap() {
           {!boundaries && !boundaryError && <div className="map-loading"><i aria-hidden="true" /> 최신 행정경계를 불러오는 중입니다</div>}
           {boundaryError && <div className="empty-map">행정경계 데이터를 불러오지 못했습니다. 잠시 후 새로고침해주세요.</div>}
           {bounds && (
-            <svg aria-label={`${level} 단계 행정구역`} role="img" viewBox="0 0 720 520">
+            <svg aria-label={`${level} 단계 행정구역`} className={shapes.length > 20 ? "dense" : ""} role="img" viewBox="0 0 720 520">
               {shapes.map((shape) => {
                 const projected = projectedShape(shape, bounds);
                 return (
@@ -430,7 +541,7 @@ export function SignalMap() {
                     tabIndex={0}
                   >
                     <path d={projected.path} />
-                    {(shape.signalCount > 0 || shapes.length <= 20) && <text x={projected.labelX} y={projected.labelY}>{shape.name}<tspan dx="5">{shape.signalCount ? shape.signalCount : ""}</tspan></text>}
+                    <text x={projected.labelX} y={projected.labelY}>{shape.name}<tspan dx="5">{shape.signalCount ? shape.signalCount : ""}</tspan></text>
                   </g>
                 );
               })}
@@ -446,8 +557,7 @@ export function SignalMap() {
         </div>
       </div>
 
-      {activeSignal && <SignalCard signal={activeSignal} />}
-      {!activeSignal && boundaries && <div className="no-signal-card">선택한 기간과 음식 유형에 공개할 수 있는 신호가 없습니다.</div>}
+      {selection.sido ? <RegionSummaryCard region={selectedRegionLabel(selection)} signals={selectedSignals} /> : activeSignal ? <SignalCard signal={activeSignal} /> : boundaries && <div className="no-signal-card">선택한 기간과 음식 유형에 공개할 수 있는 신호가 없습니다.</div>}
 
       <RegionalHelp region={selectedRegion} selection={helpSelection} />
 

@@ -37,3 +37,11 @@ export const lawFirmExperiences = sqliteTable("law_firm_experiences", {
   caseCount: integer("case_count").notNull().default(1),
   verificationStatus: text("verification_status", { enum: ["pending", "verified", "rejected"] }).notNull().default("pending"),
 }, (table) => [index("law_firm_experiences_application_idx").on(table.applicationId)]);
+
+export const regionalContactCache = sqliteTable("regional_contact_cache", {
+  regionKey: text("region_key").primaryKey(),
+  region: text("region").notNull(),
+  payload: text("payload").notNull(),
+  fetchedAt: integer("fetched_at", { mode: "timestamp_ms" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});

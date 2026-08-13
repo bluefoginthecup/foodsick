@@ -25,14 +25,17 @@ type FetchLike = typeof fetch;
 
 const KAKAO_KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json";
 
-function contactQueries(selection: RegionSelection): ContactQuery[] {
+export function contactQueries(selection: RegionSelection): ContactQuery[] {
   const prefix = [selection.sido, selection.city, selection.district].filter(Boolean).join(" ");
+  const metropolitan = /(?:특별시|광역시|특별자치시)$/.test(selection.sido);
+  const metropolitanDistrict = /(?:특별시|광역시)$/.test(selection.sido);
+  const cityOfficeName = metropolitan ? `${selection.sido}청` : `${selection.city}청`;
   const queries: ContactQuery[] = [
     {
       kind: "city_office",
       label: "관할 시청",
-      query: `${selection.sido} ${selection.city} ${selection.city}청`,
-      expectedName: `${selection.city}청`,
+      query: `${selection.sido} ${cityOfficeName}`,
+      expectedName: cityOfficeName,
       categoryGroup: "PO3",
     },
     {
@@ -43,7 +46,7 @@ function contactQueries(selection: RegionSelection): ContactQuery[] {
     },
   ];
 
-  if (selection.district) {
+  if (selection.district && (selection.district !== selection.city || metropolitanDistrict)) {
     queries.splice(1, 0, {
       kind: "district_office",
       label: "관할 구청",

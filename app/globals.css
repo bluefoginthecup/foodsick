@@ -114,6 +114,19 @@ button { color: inherit; }
 .date-filter > span { align-self: end; padding-bottom: 13px; color: var(--muted); }
 .date-filter small { grid-column: 1 / -1; color: var(--forest); font-size: 10px; font-weight: 750; }
 .result-count { display: inline-flex; align-items: center; padding: 0 11px; color: var(--muted); background: rgba(255,255,255,.5); border: 1px solid var(--line); border-radius: 12px; font-size: 11px; font-weight: 750; }
+.region-search { position: relative; z-index: 8; margin-bottom: 9px; }
+.region-search > label { display: block; margin: 0 0 6px 2px; color: var(--muted); font-size: 10px; font-weight: 850; }
+.region-search-control { display: grid; grid-template-columns: auto 1fr auto; align-items: center; min-height: 48px; padding: 0 12px; background: white; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 7px 20px rgba(28,50,42,.05); }
+.region-search-control > span { color: var(--forest); font-size: 20px; }
+.region-search-control input { width: 100%; min-height: 46px; padding: 0 10px; color: var(--ink); background: transparent; border: 0; outline: none; font-size: 13px; font-weight: 750; }
+.region-search-control button { width: 30px; height: 30px; color: var(--muted); background: var(--paper-deep); border: 0; border-radius: 50%; cursor: pointer; }
+.region-search:focus-within .region-search-control { border-color: var(--forest); box-shadow: 0 0 0 3px rgba(29,89,70,.1); }
+.region-search-results { position: absolute; top: calc(100% + 6px); right: 0; left: 0; display: grid; max-height: 280px; padding: 7px; overflow-y: auto; background: white; border: 1px solid rgba(29,89,70,.25); border-radius: 15px; box-shadow: 0 18px 45px rgba(18,60,48,.18); }
+.region-search-results button { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; padding: 9px 10px; color: var(--ink); background: transparent; border: 0; border-radius: 10px; text-align: left; cursor: pointer; }
+.region-search-results button:hover, .region-search-results button:focus-visible { background: var(--mint); outline: none; }
+.region-search-results span { font-size: 11px; font-weight: 850; }
+.region-search-results small { color: var(--muted); font-size: 8px; white-space: nowrap; }
+.region-search-results p { margin: 0; padding: 18px 10px; color: var(--muted); font-size: 11px; text-align: center; }
 .map-breadcrumb { display: flex; align-items: center; gap: 5px; margin: 4px 0 10px; overflow-x: auto; scrollbar-width: none; }
 .map-breadcrumb button { flex: 0 0 auto; padding: 8px 10px; color: var(--muted); background: transparent; border: 0; border-radius: 9px; font-size: 11px; font-weight: 800; cursor: pointer; }
 .map-breadcrumb button[aria-current="page"] { color: var(--forest-dark); background: var(--mint); }
@@ -127,6 +140,7 @@ button { color: inherit; }
 .admin-boundary-map g.has-signal path { fill: #f7c4b6; stroke: #ad4f38; }
 .admin-boundary-map g.has-signal:hover path, .admin-boundary-map g.has-signal:focus path { fill: var(--coral); }
 .admin-boundary-map text { fill: var(--forest-dark); paint-order: stroke; stroke: rgba(246,242,233,.9); stroke-width: 3px; font-size: 10px; font-weight: 850; pointer-events: none; text-anchor: middle; }
+.admin-boundary-map svg.dense text, .admin-boundary-map svg.dense tspan { font-size: 7px; }
 .admin-boundary-map tspan { fill: #8c3826; stroke: none; font-size: 9px; }
 .map-loading { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; color: var(--muted); font-size: 12px; font-weight: 750; }
 .map-loading i { width: 26px; height: 26px; border: 3px solid var(--mint); border-top-color: var(--forest); border-radius: 50%; animation: map-spin .8s linear infinite; }
@@ -168,6 +182,8 @@ button { color: inherit; }
 .signal-stats dd { margin: 4px 0 0; color: var(--forest-dark); font-size: 23px; font-weight: 900; }
 .signal-stats small { margin-left: 2px; font-size: 11px; }
 .signal-disclaimer { margin: 0; padding-top: 14px; color: var(--muted); border-top: 1px solid var(--line); font-size: 11px; line-height: 1.55; }
+.signal-card.empty-region { border-style: dashed; box-shadow: 0 10px 28px rgba(28,50,42,.1); }
+.signal-card.empty-region .privacy-label { color: var(--muted); }
 .regional-help { display: grid; gap: 18px; margin-top: 14px; padding: 20px; background: rgba(255,255,255,.78); border: 1px solid var(--line); border-radius: 24px; box-shadow: 0 10px 30px rgba(28,50,42,.07); }
 .regional-help-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .regional-help-heading .eyebrow { margin-bottom: 5px; }
@@ -185,6 +201,9 @@ button { color: inherit; }
 .contact-card.health_center { background: var(--mint); border-color: #abc8b5; }
 .contact-kind { width: fit-content; padding: 4px 6px; color: var(--forest); background: rgba(255,255,255,.7); border-radius: 6px; font-size: 8px; font-weight: 900; }
 .contact-card.food_safety .contact-kind { color: #8b3825; }
+.contact-card.unavailable { align-content: start; background: rgba(255,255,255,.52); border-style: dashed; }
+.contact-card.unavailable strong { color: #4e5b55; }
+.contact-google-search { display: grid; place-items: center; min-height: 38px; margin-top: 5px; padding: 0 10px; color: var(--forest); background: white; border: 1px solid var(--forest); border-radius: 11px; font-size: 9px; font-weight: 900; text-align: center; text-decoration: none; }
 .contact-card strong { font-size: 13px; letter-spacing: -.02em; }
 .contact-card p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.45; }
 .contact-card > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }

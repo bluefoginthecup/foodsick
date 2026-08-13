@@ -26,12 +26,15 @@ test("renders the Korean mobile-first foundation", async () => {
   assert.match(html, /모의 데이터/);
   assert.match(html, /최근 1년 조회 가능/);
   assert.match(html, /대한민국 행정구역 경계 지도/);
+  assert.match(html, /행정구역 검색/);
+  assert.match(html, /예: 울산 중구/);
   assert.match(html, /관할기관·의료기관 찾기/);
   assert.match(html, /응급실 찾기/);
   assert.match(html, /119 전화/);
   assert.match(html, /식중독 신고·문의/);
   assert.match(html, /지역 선택 후 자동 조회/);
-  assert.match(html, /행정안전부 조직정보와 지자체 공식 직원안내에서 6시간마다 다시 확인합니다/);
+  assert.match(html, /지역별 서버 캐시에 저장해 즉시 표시하고/);
+  assert.match(html, /API에서 전화번호를 확인하지 못했습니다/);
   assert.match(html, /구글 검색은 AI 요약과 검색결과를 통한 보조 확인 수단/);
   assert.doesNotMatch(html, /031-6193-6303/);
   assert.doesNotMatch(html, /교동면옥|상호명|도로명주소/);
