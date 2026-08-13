@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AdmFeature, EmdProperties, SggProperties, SidoProperties } from "admdongkor";
 import { FOOD_CATEGORIES, type FoodCategory } from "./contracts";
 import { publicSignals, SIGNAL_DATA_END, SIGNAL_DATA_START, type PublicSignal } from "./mock-signals";
+import { contactsForRegion, phoneHref } from "./regional-contacts";
 
 type MapLevel = "sido" | "city" | "district" | "dong";
 type BoundaryFeature = AdmFeature<SidoProperties | SggProperties | EmdProperties>;
@@ -26,6 +27,7 @@ function mapSearchUrl(query: string) {
 }
 
 function RegionalHelp({ region }: { region: string }) {
+  const contactDirectory = contactsForRegion(region);
   const governmentLinks = [
     { label: "시청 연락처", query: `${region} 관할 시청 대표전화 공식` },
     { label: "구청 연락처", query: `${region} 관할 구청 대표전화 공식` },
@@ -47,16 +49,42 @@ function RegionalHelp({ region }: { region: string }) {
         <span>{region}</span>
       </div>
 
-      <section aria-labelledby="government-links-title">
-        <h4 id="government-links-title">관할 행정기관</h4>
-        <div className="regional-link-grid">
-          {governmentLinks.map((item) => (
-            <a href={searchUrl(item.query)} key={item.label} rel="noreferrer" target="_blank">
-              <span aria-hidden="true">☎</span>{item.label}
-            </a>
-          ))}
-        </div>
-      </section>
+      {contactDirectory ? (
+        <section className="food-safety-contacts" aria-labelledby="government-links-title">
+          <div className="contact-section-heading">
+            <div><span aria-hidden="true">!</span><h4 id="government-links-title">식중독 신고·문의</h4></div>
+            <small>{contactDirectory.verifiedAt.replaceAll("-", ".")} 공식 정보 확인</small>
+          </div>
+          <div className="contact-card-grid">
+            {contactDirectory.contacts.map((contact) => (
+              <article className={`contact-card ${contact.kind}`} key={`${contact.kind}-${contact.phone}`}>
+                <span className="contact-kind">{contact.label}</span>
+                <strong>{contact.name}</strong>
+                <p>{contact.description}</p>
+                <div>
+                  <a className="contact-phone" href={phoneHref(contact.phone)}><span aria-hidden="true">☎</span>{contact.phone}</a>
+                  <a className="contact-source" href={contact.sourceUrl} rel="noreferrer" target="_blank">공식 출처 ↗</a>
+                </div>
+              </article>
+            ))}
+          </div>
+          <p className="contact-caution">담당업무와 전화번호는 바뀔 수 있으므로 연결되지 않으면 용인시 콜센터로 문의해주세요.</p>
+        </section>
+      ) : (
+        <section aria-labelledby="government-links-title">
+          <div className="contact-section-heading">
+            <h4 id="government-links-title">관할 행정기관</h4>
+            <small>직접 연락처 데이터 준비 중</small>
+          </div>
+          <div className="regional-link-grid">
+            {governmentLinks.map((item) => (
+              <a href={searchUrl(item.query)} key={item.label} rel="noreferrer" target="_blank">
+                <span aria-hidden="true">☎</span>{item.label}
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section aria-labelledby="medical-links-title">
         <h4 id="medical-links-title">선택 지역에서 의료기관 찾기</h4>
