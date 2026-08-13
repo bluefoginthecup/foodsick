@@ -21,6 +21,10 @@ test("renders the Korean mobile-first foundation", async () => {
   assert.match(html, /모의 데이터/);
   assert.match(html, /최근 1년 조회 가능/);
   assert.match(html, /대한민국 행정구역 경계 지도/);
+  assert.match(html, /관할기관·의료기관 찾기/);
+  assert.match(html, /시청 연락처/);
+  assert.match(html, /응급실 찾기/);
+  assert.match(html, /119 전화/);
   assert.doesNotMatch(html, /교동면옥|상호명|도로명주소/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });

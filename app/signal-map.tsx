@@ -12,10 +12,73 @@ type BoundaryData = {
   sgg: AdmFeature<SggProperties>[];
   emd: AdmFeature<EmdProperties>[];
 };
-type RegionSelection = { sido: string; city: string; district: string };
+type RegionSelection = { sido: string; city: string; district: string; dong: string };
 type RegionShape = { id: string; name: string; features: BoundaryFeature[]; signalCount: number };
 
-const EMPTY_SELECTION: RegionSelection = { sido: "", city: "", district: "" };
+const EMPTY_SELECTION: RegionSelection = { sido: "", city: "", district: "", dong: "" };
+
+function searchUrl(query: string) {
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
+function mapSearchUrl(query: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function RegionalHelp({ region }: { region: string }) {
+  const governmentLinks = [
+    { label: "시청 연락처", query: `${region} 관할 시청 대표전화 공식` },
+    { label: "구청 연락처", query: `${region} 관할 구청 대표전화 공식` },
+    { label: "보건소 연락처", query: `${region} 관할 보건소 대표전화 공식` },
+  ];
+  const medicalLinks = [
+    { label: "대학병원 찾기", query: `${region} 대학병원` },
+    { label: "응급실 찾기", query: `${region} 응급실` },
+    { label: "내과 찾기", query: `${region} 내과` },
+  ];
+
+  return (
+    <aside className="regional-help" aria-labelledby="regional-help-title">
+      <div className="regional-help-heading">
+        <div>
+          <p className="eyebrow">선택 지역 생활·의료 안내</p>
+          <h3 id="regional-help-title">관할기관·의료기관 찾기</h3>
+        </div>
+        <span>{region}</span>
+      </div>
+
+      <section aria-labelledby="government-links-title">
+        <h4 id="government-links-title">관할 행정기관</h4>
+        <div className="regional-link-grid">
+          {governmentLinks.map((item) => (
+            <a href={searchUrl(item.query)} key={item.label} rel="noreferrer" target="_blank">
+              <span aria-hidden="true">☎</span>{item.label}
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="medical-links-title">
+        <h4 id="medical-links-title">선택 지역에서 의료기관 찾기</h4>
+        <div className="regional-link-grid medical">
+          {medicalLinks.map((item) => (
+            <a href={mapSearchUrl(item.query)} key={item.label} rel="noreferrer" target="_blank">
+              <span aria-hidden="true">⌖</span>{item.label}
+            </a>
+          ))}
+        </div>
+        <a className="egen-link" href="https://www.e-gen.or.kr/egen/main.do" rel="noreferrer" target="_blank">
+          중앙응급의료센터 E-Gen에서 운영 여부 확인하기 <span aria-hidden="true">↗</span>
+        </a>
+      </section>
+
+      <div className="emergency-callout">
+        <p><strong>심한 호흡곤란·의식 저하 등 위급한 증상은 즉시 119에 연락하세요.</strong><span>검색 결과와 실제 진료 가능 여부는 다를 수 있으니 방문 전에 전화로 확인해주세요.</span></p>
+        <a href="tel:119">119 전화</a>
+      </div>
+    </aside>
+  );
+}
 
 function formatObservedAt(value: string) {
   return new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(`${value}T12:00:00+09:00`));
@@ -154,20 +217,24 @@ export function SignalMap() {
   const shapes = useMemo(() => makeShapes(boundaries, level, selection, visibleSignals), [boundaries, level, selection, visibleSignals]);
   const bounds = useMemo(() => shapeBounds(shapes), [shapes]);
   const activeSignal = visibleSignals.find((signal) => signal.id === activeId) ?? visibleSignals[0];
+  const selectedRegion = [selection.sido, selection.city, selection.district, selection.dong].filter(Boolean).join(" ")
+    || activeSignal?.region
+    || "대한민국";
 
   const moveTo = (shape: RegionShape) => {
     const matchingSignal = visibleSignals.find((signal) => signal[level] === shape.name);
     if (matchingSignal) setActiveId(matchingSignal.id);
-    if (level === "sido") { setSelection({ sido: shape.name, city: "", district: "" }); setLevel("city"); }
-    if (level === "city") { setSelection((current) => ({ ...current, city: shape.name, district: "" })); setLevel("district"); }
-    if (level === "district") { setSelection((current) => ({ ...current, district: shape.name })); setLevel("dong"); }
+    if (level === "sido") { setSelection({ sido: shape.name, city: "", district: "", dong: "" }); setLevel("city"); }
+    if (level === "city") { setSelection((current) => ({ ...current, city: shape.name, district: "", dong: "" })); setLevel("district"); }
+    if (level === "district") { setSelection((current) => ({ ...current, district: shape.name, dong: "" })); setLevel("dong"); }
+    if (level === "dong") setSelection((current) => ({ ...current, dong: shape.name }));
   };
 
   const resetTo = (target: MapLevel) => {
     setLevel(target);
     if (target === "sido") setSelection(EMPTY_SELECTION);
-    if (target === "city") setSelection((current) => ({ sido: current.sido, city: "", district: "" }));
-    if (target === "district") setSelection((current) => ({ ...current, district: "" }));
+    if (target === "city") setSelection((current) => ({ sido: current.sido, city: "", district: "", dong: "" }));
+    if (target === "district") setSelection((current) => ({ ...current, district: "", dong: "" }));
   };
 
   return (
@@ -195,7 +262,8 @@ export function SignalMap() {
         <button aria-current={level === "sido" ? "page" : undefined} onClick={() => resetTo("sido")} type="button">시/도</button>
         {selection.sido && <><span>›</span><button aria-current={level === "city" ? "page" : undefined} onClick={() => resetTo("city")} type="button">{selection.sido}</button></>}
         {selection.city && <><span>›</span><button aria-current={level === "district" ? "page" : undefined} onClick={() => resetTo("district")} type="button">{selection.city}</button></>}
-        {selection.district && <><span>›</span><button aria-current={level === "dong" ? "page" : undefined} type="button">{selection.district}</button></>}
+        {selection.district && <><span>›</span><button aria-current={level === "dong" && !selection.dong ? "page" : undefined} type="button">{selection.district}</button></>}
+        {selection.dong && <><span>›</span><button aria-current="page" type="button">{selection.dong}</button></>}
       </nav>
 
       <div className="admin-map-shell">
@@ -235,6 +303,8 @@ export function SignalMap() {
 
       {activeSignal && <SignalCard signal={activeSignal} />}
       {!activeSignal && boundaries && <div className="no-signal-card">선택한 기간과 음식 유형에 공개할 수 있는 신호가 없습니다.</div>}
+
+      <RegionalHelp region={selectedRegion} />
 
       <p className="map-privacy-note"><span aria-hidden="true">◎</span>경계는 최신 행정동 기준이며, 신호는 음식점 위치가 아닌 공개 가능한 행정구역에만 표시합니다.</p>
       <details className="privacy-explainer">
