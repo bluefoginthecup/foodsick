@@ -13,9 +13,17 @@ const statusLabel = {
 };
 
 export default function MyReportsPage() {
-  const { user } = useAuth();
+  const { user, loading, firebaseMode } = useAuth();
   const { reports } = useReports();
   const mine = user ? reports.filter((report) => report.ownerUid === user.uid) : [];
+
+  if (loading) {
+    return (
+      <main className="narrow-page">
+        <section className="empty-reports" aria-live="polite"><h1>로그인 확인 중…</h1></section>
+      </main>
+    );
+  }
 
   if (!user) {
     return (
@@ -38,7 +46,7 @@ export default function MyReportsPage() {
       <section className="my-reports-heading">
         <p className="eyebrow">나만 볼 수 있어요</p>
         <h1>내 신고</h1>
-        <p>체험 모드에서는 이 브라우저 탭을 닫거나 새로고침하면 신고가 사라집니다.</p>
+        <p>{firebaseMode ? "카카오 계정으로 로그인한 본인 신고만 표시됩니다." : "체험 모드에서는 이 브라우저 탭을 닫거나 새로고침하면 신고가 사라집니다."}</p>
       </section>
 
       {mine.length === 0 ? (

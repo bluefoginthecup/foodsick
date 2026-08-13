@@ -21,10 +21,14 @@ const demoReports = [
 ] as const;
 
 export default function AdminPage() {
-  const { user } = useAuth();
+  const { user, loading, firebaseMode } = useAuth();
   const { reports, auditEvents, setReportStatus } = useReports();
   const { feedback } = useContactFeedback();
   const [activeTab, setActiveTab] = useState<"reports" | "clusters" | "contacts" | "law_firms" | "audit">("reports");
+
+  if (loading) {
+    return <main className="admin-gate" aria-live="polite"><span aria-hidden="true">…</span><h1>권한 확인 중</h1></main>;
+  }
 
   if (!user || user.role !== "admin") {
     return (
@@ -32,7 +36,7 @@ export default function AdminPage() {
         <span aria-hidden="true">403</span>
         <h1>관리자 권한이 필요합니다</h1>
         <p>화면의 버튼이 아니라 서버의 Firebase custom claim으로 권한을 확인해야 합니다.</p>
-        <NativeLink className="primary-button" href="/login">체험 로그인으로 이동</NativeLink>
+        <NativeLink className="primary-button" href="/login">{firebaseMode ? "카카오 로그인으로 이동" : "체험 로그인으로 이동"}</NativeLink>
         <NativeLink className="text-link" href="/">공개 지도로 돌아가기</NativeLink>
       </main>
     );
