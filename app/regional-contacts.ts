@@ -14,11 +14,12 @@ export type RegionalContact = {
   phone: string;
   address: string;
   sourceUrl: string;
+  sourceLabel?: string;
 };
 
 export type RegionalContactsResponse = {
   region: string;
-  provider: "kakao-local";
+  provider: "kakao-local+official-organizations";
   fetchedAt: string;
   contacts: RegionalContact[];
 };

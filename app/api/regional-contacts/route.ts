@@ -1,4 +1,5 @@
 import { fetchKakaoRegionalContacts } from "./kakao";
+import { fetchOfficialFoodSafetyContact } from "./official-organizations";
 import type { RegionSelection, RegionalContactsError, RegionalContactsResponse } from "../../../regional-contacts";
 
 const REGION_VALUE = /^[가-힣A-Za-z0-9·\-\s]{0,40}$/;
@@ -39,12 +40,29 @@ export async function GET(request: Request) {
   }
 
   try {
-    const contacts = await fetchKakaoRegionalContacts(selection, apiKey);
+    const [contacts, officialFoodSafety] = await Promise.all([
+      fetchKakaoRegionalContacts(selection, apiKey),
+      fetchOfficialFoodSafetyContact(selection).catch((error) => {
+        console.error("Official food-safety contact provider failed", error);
+        return null;
+      }),
+    ]);
+    const districtOffice = contacts.find((contact) => contact.kind === "district_office");
+    const resolvedFoodSafety = officialFoodSafety && !officialFoodSafety.phone && districtOffice
+      ? {
+          ...officialFoodSafety,
+          phone: districtOffice.phone,
+          address: `직통번호 확인 중 · ${districtOffice.name} 대표전화로 담당부서 연결 요청`,
+        }
+      : officialFoodSafety;
+    const mergedContacts = resolvedFoodSafety?.phone
+      ? [resolvedFoodSafety, ...contacts.filter((contact) => contact.kind !== "food_safety")]
+      : contacts;
     return json({
       region: [selection.sido, selection.city, selection.district, selection.dong].filter(Boolean).join(" "),
-      provider: "kakao-local",
+      provider: "kakao-local+official-organizations",
       fetchedAt: new Date().toISOString(),
-      contacts,
+      contacts: mergedContacts,
     });
   } catch (error) {
     console.error("Regional contact provider failed", error);

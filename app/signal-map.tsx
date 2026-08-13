@@ -104,7 +104,7 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
                 <p>{contact.address}</p>
                 <div>
                   <a className="contact-phone" href={phoneHref(contact.phone)}><span aria-hidden="true">☎</span>{contact.phone}</a>
-                  <a className="contact-source" href={contact.sourceUrl} rel="noreferrer" target="_blank">장소 정보 ↗</a>
+                  <a className="contact-source" href={contact.sourceUrl} rel="noreferrer" target="_blank">{contact.sourceLabel ?? "장소 정보"} ↗</a>
                 </div>
               </article>
             ))}
@@ -116,7 +116,7 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
             {contactState.status === "error" && <button onClick={() => setRefreshKey((value) => value + 1)} type="button">다시 불러오기</button>}
           </div>
         )}
-        <p className="contact-caution">카카오 Local API에서 6시간마다 최신 장소·전화 정보를 다시 확인합니다. 위생 담당부서는 검색 결과가 확인되는 지역만 표시합니다.</p>
+        <p className="contact-caution">시청·구청·보건소는 카카오 Local API, 식품위생 담당은 행정안전부 조직정보와 지자체 공식 직원안내에서 6시간마다 다시 확인합니다.</p>
       </section>
 
       <section aria-labelledby="medical-links-title">
