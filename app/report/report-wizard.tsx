@@ -110,6 +110,8 @@ export function ReportWizard() {
   const [consented, setConsented] = useState(false);
   const [duplicateNotice, setDuplicateNotice] = useState(false);
   const [completedReport, setCompletedReport] = useState<StoredReport | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const candidates = useMemo(() => findRestaurantCandidates(draft.restaurantDisplayInput), [draft.restaurantDisplayInput]);
   const incubation = calculateIncubation(draft);
 
@@ -130,6 +132,33 @@ export function ReportWizard() {
 
   const patch = <K extends keyof ReportDraft>(key: K, value: ReportDraft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const submitReport = async () => {
+    if (!user || submitting) return;
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      if (editingId) {
+        const updated = await updateReport(editingId, user.uid, draft);
+        if (!updated) throw new Error("신고를 수정할 수 없습니다. 중복 신고 여부를 확인해 주세요.");
+        setCompletedReport(updated);
+        return;
+      }
+      const result = await createReport(user.uid, draft);
+      if (result.kind === "duplicate") {
+        setDraft(structuredClone(result.report.draft));
+        setEditingId(result.report.id);
+        setDuplicateNotice(true);
+        setConsented(false);
+        return;
+      }
+      setCompletedReport(result.report);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "신고를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -375,27 +404,13 @@ export function ReportWizard() {
             <label className="consent-check"><input checked={consented} onChange={(event) => setConsented(event.target.checked)} type="checkbox" /> <span>건강 관련 정보가 민감정보임을 확인했으며, 신고 분석 목적으로 처리하는 데 동의합니다. <small>실제 운영 전 동의문과 보유기간을 법률 검토합니다.</small></span></label>
             <button
               className="submit-preview"
-              disabled={!consented || !draft.restaurantInternalId || !draft.mealDate || !draft.mealTime || draft.symptoms.length === 0}
-              onClick={() => {
-                if (editingId) {
-                  const updated = updateReport(editingId, user.uid, draft);
-                  if (updated) setCompletedReport(updated);
-                  return;
-                }
-                const result = createReport(user.uid, draft);
-                if (result.kind === "duplicate") {
-                  setDraft(structuredClone(result.report.draft));
-                  setEditingId(result.report.id);
-                  setDuplicateNotice(true);
-                  setConsented(false);
-                  return;
-                }
-                setCompletedReport(result.report);
-              }}
+              disabled={submitting || !consented || !draft.restaurantInternalId || !draft.mealDate || !draft.mealTime || draft.symptoms.length === 0}
+              onClick={() => void submitReport()}
               type="button"
             >
-              {editingId ? "기존 신고 수정하기" : "증상 신고 제출하기"}
+              {submitting ? "저장 중..." : editingId ? "기존 신고 수정하기" : "증상 신고 제출하기"}
             </button>
+            {submitError && <p className="form-error" role="alert">{submitError}</p>}
           </section>
         )}
 

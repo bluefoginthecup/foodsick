@@ -20,17 +20,28 @@ const kakaoRedirectUri = defineString("KAKAO_REDIRECT_URI", {
 
 const STATE_TTL_MS = 10 * 60_000;
 const EXCHANGE_TTL_MS = 5 * 60_000;
+const allowedSiteOrigins = new Set([
+  "https://apayo-signal-map.designmonster.chatgpt.site",
+  "https://apayo--foodsick-signal-map-kr.asia-east1.hosted.app",
+  "https://foodsick-signal-map-kr.web.app",
+  "https://foodsick-signal-map-kr.firebaseapp.com",
+]);
 
 function randomToken() {
   return randomBytes(32).toString("base64url");
 }
 
-function loginUrl(path = "/login") {
-  return new URL(path, publicSiteUrl.value());
+function safeSiteOrigin(value: unknown) {
+  if (typeof value === "string" && allowedSiteOrigins.has(value)) return value;
+  return new URL(publicSiteUrl.value()).origin;
 }
 
-function redirectWithError(response: Response, code: string) {
-  const target = loginUrl();
+function loginUrl(path = "/login", siteOrigin = safeSiteOrigin(null)) {
+  return new URL(path, siteOrigin);
+}
+
+function redirectWithError(response: Response, code: string, siteOrigin?: string) {
+  const target = loginUrl("/login", safeSiteOrigin(siteOrigin));
   target.searchParams.set("error", code);
   response.set("Cache-Control", "no-store");
   response.redirect(303, target.toString());
@@ -72,13 +83,16 @@ export const beginKakaoLogin = onCall({
   enforceAppCheck: false,
   secrets: [kakaoRestApiKey],
 }, async (request) => {
-  const returnTo = safeReturnTo((request.data as { returnTo?: unknown } | null)?.returnTo);
+  const data = request.data as { returnTo?: unknown; siteOrigin?: unknown } | null;
+  const returnTo = safeReturnTo(data?.returnTo);
+  const siteOrigin = safeSiteOrigin(data?.siteOrigin);
   const state = randomToken();
   const now = Date.now();
   const stateRef = db.collection("kakaoAuthStates").doc(sha256Base64Url(state));
 
   await stateRef.create({
     returnTo,
+    siteOrigin,
     createdAt: FieldValue.serverTimestamp(),
     expiresAt: Timestamp.fromMillis(now + STATE_TTL_MS),
   });
@@ -110,15 +124,21 @@ export const kakaoLoginCallback = onRequest({
 
   const stateRef = db.collection("kakaoAuthStates").doc(sha256Base64Url(state));
   let returnTo = "/report";
+  let siteOrigin = safeSiteOrigin(null);
   try {
-    returnTo = await db.runTransaction(async (transaction) => {
+    const loginState = await db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(stateRef);
       if (!snapshot.exists || snapshot.get("claimedAt")) throw new Error("Invalid login state");
       const expiresAt = snapshot.get("expiresAt");
       if (!(expiresAt instanceof Timestamp) || expiresAt.toMillis() <= Date.now()) throw new Error("Expired login state");
       transaction.update(stateRef, { claimedAt: FieldValue.serverTimestamp() });
-      return safeReturnTo(snapshot.get("returnTo"));
+      return {
+        returnTo: safeReturnTo(snapshot.get("returnTo")),
+        siteOrigin: safeSiteOrigin(snapshot.get("siteOrigin")),
+      };
     });
+    returnTo = loginState.returnTo;
+    siteOrigin = loginState.siteOrigin;
 
     const accessToken = await exchangeAuthorizationCode(code);
     const kakaoMemberId = await fetchKakaoMemberId(accessToken);
@@ -144,13 +164,13 @@ export const kakaoLoginCallback = onRequest({
       }, { merge: true });
     });
 
-    const target = loginUrl("/login");
+    const target = loginUrl("/login", siteOrigin);
     target.searchParams.set("exchange", exchange);
     target.searchParams.set("returnTo", returnTo);
     response.redirect(303, target.toString());
   } catch (error) {
     console.error("Kakao login callback failed", error instanceof Error ? error.message : "unknown error");
-    redirectWithError(response, "kakao_login_failed");
+    redirectWithError(response, "kakao_login_failed", siteOrigin);
   }
 });
 

@@ -15,8 +15,8 @@ function requiredClient() {
 
 export async function beginKakaoLogin(returnTo: string) {
   const client = requiredClient();
-  const begin = httpsCallable<{ returnTo: string }, BeginResponse>(client.functions, "beginKakaoLogin");
-  const result = await begin({ returnTo });
+  const begin = httpsCallable<{ returnTo: string; siteOrigin: string }, BeginResponse>(client.functions, "beginKakaoLogin");
+  const result = await begin({ returnTo, siteOrigin: window.location.origin });
   if (!result.data.authorizeUrl.startsWith("https://kauth.kakao.com/")) {
     throw new Error("카카오 로그인 주소를 확인하지 못했습니다.");
   }
@@ -30,4 +30,3 @@ export async function completeKakaoLogin(exchange: string) {
   if (!result.data.customToken) throw new Error("로그인 토큰을 확인하지 못했습니다.");
   await signInWithCustomToken(client.auth, result.data.customToken);
 }
-

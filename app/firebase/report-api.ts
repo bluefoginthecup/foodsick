@@ -6,6 +6,15 @@ import { getFirebaseClient } from "./client";
 
 type ReportOutcome = { outcome: "created" | "duplicate" | "updated"; reportId: string };
 type PublicSignalResponse = { signals: Array<Record<string, unknown>> };
+export type FirebaseStoredReport = {
+  id: string;
+  ownerUid: string;
+  status: ReportStatus;
+  draft: ReportDraft;
+  incubationMinutes: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
 function functionsClient() {
   const firebase = getFirebaseClient();
@@ -28,7 +37,7 @@ export async function updateFirebaseReport(reportId: string, draft: ReportDraft)
 }
 
 export async function getFirebaseReports() {
-  const call = httpsCallable<Record<string, never>, { reports: Array<Record<string, unknown>> }>(functionsClient(), "getMyReports");
+  const call = httpsCallable<Record<string, never>, { reports: FirebaseStoredReport[] }>(functionsClient(), "getMyReports");
   return (await call({})).data.reports;
 }
 

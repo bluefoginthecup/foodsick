@@ -351,6 +351,7 @@ button { color: inherit; }
 .consent-check small { display: block; margin-top: 4px; color: var(--muted); }
 .submit-preview { width: 100%; min-height: 54px; color: white; background: var(--forest); border: 0; border-radius: 16px; font-weight: 850; cursor: pointer; }
 .submit-preview:disabled { opacity: .38; cursor: not-allowed; }
+.form-error { margin: 10px 0 0; color: #a5392b; font-size: .9rem; font-weight: 700; }
 .wizard-actions { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--line); }
 .wizard-actions button { cursor: pointer; }
 .wizard-actions button:disabled { opacity: .35; cursor: not-allowed; }

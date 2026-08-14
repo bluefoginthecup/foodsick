@@ -8,7 +8,7 @@ import { InputError, validateReportInput } from "./domain/report.js";
 import { db } from "./firebase.js";
 
 const dedupeSecret = defineSecret("DEDUPE_HMAC_SECRET");
-const callableOptions = { region: "asia-northeast3", enforceAppCheck: true, secrets: [dedupeSecret] };
+const callableOptions = { region: "asia-northeast3", enforceAppCheck: false, secrets: [dedupeSecret] };
 
 function reportDocument(ownerUid: string, report: ReturnType<typeof validateReportInput>, updatedAt: FieldValue) {
   return {
@@ -39,9 +39,41 @@ function reportDocument(ownerUid: string, report: ReturnType<typeof validateRepo
     partyTotal: report.partyTotal,
     partySymptomatic: report.partySymptomatic,
     sensitiveDataConsentVersion: report.sensitiveDataConsentVersion,
+    draft: {
+      mealDate: report.mealDate,
+      mealTime: report.mealTime,
+      province: report.province,
+      city: report.city,
+      district: report.district,
+      restaurantInternalId: report.restaurantInternalId,
+      restaurantDisplayInput: report.restaurantDisplayInput,
+      foodCategory: report.foodCategory,
+      menu: report.menu,
+      serviceMode: report.serviceMode,
+      symptoms: report.symptoms,
+      diarrheaCount: report.diarrheaCount,
+      otherSymptom: report.otherSymptom,
+      onsetDate: report.onsetDate,
+      onsetTime: report.onsetTime,
+      partyTotal: report.partyTotal,
+      partySymptomatic: report.partySymptomatic,
+      companionSymptoms: report.companionSymptoms,
+      companionOnsetAt: report.companionOnsetAt,
+      companionMedicalVisit: report.companionMedicalVisit,
+      companionTested: report.companionTested,
+      medicalVisit: report.medicalVisit,
+      hospitalized: report.hospitalized,
+      tested: report.tested,
+      pathogenKnown: report.pathogenKnown,
+      pathogenType: report.pathogenType,
+    },
     schemaVersion: 1,
     updatedAt,
   };
+}
+
+function timestampIso(value: unknown) {
+  return value instanceof Timestamp ? value.toDate().toISOString() : new Date().toISOString();
 }
 
 function companionDocument(ownerUid: string, reportId: string, report: ReturnType<typeof validateReportInput>, updatedAt: FieldValue) {
@@ -93,10 +125,20 @@ export const submitReport = onCall(callableOptions, async (request) => {
       }
       const currentCount = rateSnapshot.exists ? Number(rateSnapshot.get("count")) : 0;
       if (currentCount >= 5) throw new HttpsError("resource-exhausted", "잠시 후 다시 시도해주세요.");
-      if (!restaurantSnapshot.exists || restaurantSnapshot.get("status") === "blocked") {
+      if (restaurantSnapshot.exists && restaurantSnapshot.get("status") === "blocked") {
         throw new HttpsError("failed-precondition", "음식점 정보를 다시 선택해주세요.");
       }
       const serverTimestamp = FieldValue.serverTimestamp();
+      if (!restaurantSnapshot.exists) {
+        transaction.create(restaurantRef, {
+          canonicalName: report.restaurantDisplayInput,
+          region: { province: report.province, city: report.city, district: report.district },
+          status: "pending_match",
+          source: report.restaurantInternalId.startsWith("manual_") ? "reporter_entered" : "app_matcher",
+          createdAt: serverTimestamp,
+          updatedAt: serverTimestamp,
+        });
+      }
       transaction.set(rateRef, { uid: ownerUid, action: "report-create", count: currentCount + 1, expiresAt: Timestamp.fromMillis(now.getTime() + 60 * 60_000) }, { merge: true });
       transaction.create(reportRef, {
         ...reportDocument(ownerUid, report, serverTimestamp),
@@ -144,11 +186,21 @@ export const updateReport = onCall(callableOptions, async (request) => {
         transaction.get(newDedupeRef),
         transaction.get(rateRef),
       ]);
-      if (!restaurantSnapshot.exists || restaurantSnapshot.get("status") === "blocked") throw new HttpsError("failed-precondition", "음식점 정보를 다시 선택해주세요.");
+      if (restaurantSnapshot.exists && restaurantSnapshot.get("status") === "blocked") throw new HttpsError("failed-precondition", "음식점 정보를 다시 선택해주세요.");
       if (newDedupeSnapshot.exists && newDedupeSnapshot.get("reportId") !== reportId) throw new HttpsError("already-exists", "이미 같은 식사 신고가 있습니다.", { reportId: newDedupeSnapshot.get("reportId") });
       const currentCount = rateSnapshot.exists ? Number(rateSnapshot.get("count")) : 0;
       if (currentCount >= 20) throw new HttpsError("resource-exhausted", "수정 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
       const serverTimestamp = FieldValue.serverTimestamp();
+      if (!restaurantSnapshot.exists) {
+        transaction.create(restaurantRef, {
+          canonicalName: report.restaurantDisplayInput,
+          region: { province: report.province, city: report.city, district: report.district },
+          status: "pending_match",
+          source: report.restaurantInternalId.startsWith("manual_") ? "reporter_entered" : "app_matcher",
+          createdAt: serverTimestamp,
+          updatedAt: serverTimestamp,
+        });
+      }
       transaction.set(rateRef, { uid: ownerUid, action: "report-update", count: currentCount + 1, expiresAt: Timestamp.fromMillis(Date.now() + 60 * 60_000) }, { merge: true });
       transaction.update(reportRef, reportDocument(ownerUid, report, serverTimestamp));
       if (report.partySymptomatic > 0) transaction.set(companionRef, companionDocument(ownerUid, reportId, report, serverTimestamp), { merge: true });
@@ -162,13 +214,24 @@ export const updateReport = onCall(callableOptions, async (request) => {
   }
 });
 
-export const getMyReports = onCall({ region: "asia-northeast3", enforceAppCheck: true }, async (request) => {
+export const getMyReports = onCall({ region: "asia-northeast3", enforceAppCheck: false }, async (request) => {
   const ownerUid = requireUid(request);
   const snapshot = await db.collection("reports").where("ownerUid", "==", ownerUid).orderBy("createdAt", "desc").limit(50).get();
-  return { reports: snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) };
+  return { reports: snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ownerUid,
+      status: data.status,
+      draft: data.draft,
+      incubationMinutes: data.incubationMinutes ?? null,
+      createdAt: timestampIso(data.createdAt),
+      updatedAt: timestampIso(data.updatedAt),
+    };
+  }) };
 });
 
-export const setReportStatus = onCall({ region: "asia-northeast3", enforceAppCheck: true }, async (request) => {
+export const setReportStatus = onCall({ region: "asia-northeast3", enforceAppCheck: false }, async (request) => {
   const actorUid = requireAdmin(request);
   const data = request.data as { reportId?: unknown; status?: unknown; note?: unknown };
   const reportId = typeof data.reportId === "string" ? data.reportId : "";

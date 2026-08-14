@@ -2,7 +2,7 @@ import { onCall } from "firebase-functions/v2/https";
 import { db } from "./firebase.js";
 
 
-export const getPublicSignals = onCall({ region: "asia-northeast3", enforceAppCheck: true }, async () => {
+export const getPublicSignals = onCall({ region: "asia-northeast3", enforceAppCheck: false }, async () => {
   const snapshot = await db.collection("publicSignals").where("publishUntil", ">", new Date()).orderBy("publishUntil", "asc").limit(200).get();
   return {
     signals: snapshot.docs.map((doc) => {

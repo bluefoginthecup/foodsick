@@ -89,8 +89,8 @@ export default function AdminPage() {
               </div>
               {reports.some((item) => item.id === report.id) ? (
                 <div className="admin-actions">
-                  <button onClick={() => setReportStatus(user.uid, report.id, "reviewed", "관리자 체험 검토")} type="button">검토 완료</button>
-                  <button className="reject" onClick={() => setReportStatus(user.uid, report.id, "rejected", "관리자 체험 제외")} type="button">집계 제외</button>
+                  <button onClick={() => void setReportStatus(user.uid, report.id, "reviewed", "관리자 체험 검토")} type="button">검토 완료</button>
+                  <button className="reject" onClick={() => void setReportStatus(user.uid, report.id, "rejected", "관리자 체험 제외")} type="button">집계 제외</button>
                 </div>
               ) : <span className="demo-only">예시 신고</span>}
             </article>
