@@ -48,7 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       }
-      return onAuthStateChanged(client.auth, async (firebaseUser) => {
+      const loadingTimeout = window.setTimeout(() => setLoading(false), 4000);
+      const unsubscribe = onAuthStateChanged(client.auth, async (firebaseUser) => {
+        window.clearTimeout(loadingTimeout);
         if (!firebaseUser) {
           setUser(null);
           setLoading(false);
@@ -69,6 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }
       });
+      return () => {
+        window.clearTimeout(loadingTimeout);
+        unsubscribe();
+      };
     }
 
     const stored = window.sessionStorage.getItem(SESSION_USER_KEY);

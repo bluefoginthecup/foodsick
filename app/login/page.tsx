@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "../auth/auth-context";
 import { completeKakaoLogin } from "../firebase/kakao-auth-api";
@@ -22,6 +22,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
+  const exchangeStarted = useRef(false);
   const exchanging = firebaseMode && Boolean(searchParams.get("exchange"));
   const callbackError = searchParams.get("exchange")
     ? ""
@@ -30,7 +31,8 @@ export default function LoginPage() {
   useEffect(() => {
     if (!firebaseMode) return;
     const exchange = searchParams.get("exchange");
-    if (!exchange) return;
+    if (!exchange || exchangeStarted.current) return;
+    exchangeStarted.current = true;
 
     const returnTo = safeReturnTo(searchParams.get("returnTo"));
     window.history.replaceState({}, "", "/login");
