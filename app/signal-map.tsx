@@ -351,7 +351,7 @@ function projectedShape(shape: RegionShape, bounds: NonNullable<ReturnType<typeo
   const offsetY = (height - drawnHeight) / 2;
   const project = ([x, y]: number[]) => [offsetX + (x - bounds.minX) * scale, offsetY + (bounds.maxY - y) * scale];
   const paths = shape.features.flatMap((feature) => geometryRings(feature)).map((ring) => (
-    `${ring.map((point, index) => `${index ? "L" : "M"}${project(point).map((value) => value.toFixed(1)).join(" ")}`).join(" ")} Z`
+    `${ring.map((point: number[], index: number) => `${index ? "L" : "M"}${project(point).map((value) => value.toFixed(1)).join(" ")}`).join(" ")} Z`
   )).join(" ");
   const points = shape.features.flatMap((feature) => geometryRings(feature).flat()).map(project);
   const label = points.reduce((box, [x, y]) => ({

@@ -10,6 +10,7 @@
     "build": "vinext build",
     "start": "node scripts/start-production.mjs",
     "test": "npm run build && node --experimental-strip-types --test tests/*.test.mjs",
+    "typecheck": "tsc -p tsconfig.app.json",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern functions/node_modules --ignore-pattern functions/lib",
     "db:generate": "drizzle-kit generate",
     "functions:build": "npm --prefix functions run build",

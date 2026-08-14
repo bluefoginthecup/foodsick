@@ -533,10 +533,6 @@ export function ReportWizard() {
           {step < steps.length - 1 && <button className="primary-button" onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))} type="button">다음</button>}
         </div>
       </form>
-      <details className="mock-helper">
-        <summary>체험용 음식점 검색어</summary>
-        <p>{restaurantCandidates.map((candidate) => candidate.name).join(" · ")}</p>
-      </details>
     </main>
   );
 }

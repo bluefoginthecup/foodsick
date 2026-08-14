@@ -366,8 +366,6 @@ button { color: inherit; }
 .wizard-actions { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--line); }
 .wizard-actions button { cursor: pointer; }
 .wizard-actions button:disabled { opacity: .35; cursor: not-allowed; }
-.mock-helper { margin-top: 16px; padding: 12px 14px; color: var(--muted); background: rgba(255,255,255,.4); border-radius: 13px; font-size: 10px; }
-.mock-helper p { line-height: 1.5; }
 .auth-gate { width: min(100%, 620px); min-height: 100vh; margin: 0 auto; padding: 70px 22px; text-align: center; }
 .auth-gate .lock-mark { display: grid; place-items: center; width: 58px; height: 58px; margin: 0 auto 28px; color: white; background: var(--forest); border-radius: 21px 21px 21px 7px; font-size: 26px; font-weight: 900; }
 .auth-gate h1 { margin: 0; font-size: clamp(32px, 8vw, 50px); line-height: 1.15; letter-spacing: -.06em; }
@@ -647,7 +645,6 @@ button { color: inherit; }
 .manual-place,
 .party-summary span,
 .review-card small,
-.mock-helper,
 .completion-summary span,
 .my-report-topline time,
 .report-status,

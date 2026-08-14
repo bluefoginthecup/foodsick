@@ -43,11 +43,13 @@ async function readCachedContacts(selection: RegionSelection) {
     if (!snapshot.exists) return null;
     const fetchedAtValue = snapshot.get("fetchedAt");
     const fetchedAt = fetchedAtValue instanceof Timestamp ? fetchedAtValue.toDate() : null;
-    if (!fetchedAt || contactCacheFreshness(fetchedAt) === "expired") return null;
+    if (!fetchedAt) return null;
+    const freshness = contactCacheFreshness(fetchedAt);
+    if (freshness === "expired") return null;
     const cached = snapshot.get("payload") as Omit<RegionalContactsResponse, "cache" | "cacheAgeSeconds">;
     return {
       response: cached,
-      freshness: contactCacheFreshness(fetchedAt),
+      freshness,
       ageSeconds: Math.max(0, Math.floor((Date.now() - fetchedAt.getTime()) / 1000)),
     };
   } catch (error) {
