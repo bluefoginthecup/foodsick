@@ -25,7 +25,7 @@ export function firebaseClientConfig(): FirebaseOptions | null {
 }
 
 export function firebaseBackendEnabled() {
-  return process.env.NEXT_PUBLIC_AUTH_MODE === "firebase" && firebaseClientConfig() !== null;
+  return process.env.NEXT_PUBLIC_AUTH_MODE !== "mock" && firebaseClientConfig() !== null;
 }
 
 export function getFirebaseClient(): FirebaseClient | null {
