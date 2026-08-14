@@ -19,7 +19,7 @@ const defaultFirebaseClientConfig: FirebaseOptions = {
   projectId: "foodsick-signal-map-kr",
   apiKey: "AIzaSyDeohLAs7aDoTrC7JdzqhbR7eFSa4HrOzs",
   authDomain: "foodsick-signal-map-kr.firebaseapp.com",
-  appId: "1:126271004619:web:7c8a29a919d1e0c1f7a04e",
+  appId: "1:126271004619:web:3bc3d47cfe8a67bff7a04e",
   messagingSenderId: "126271004619",
 };
 
@@ -44,12 +44,6 @@ export function getFirebaseClient(): FirebaseClient | null {
   if (client) return client;
 
   const app = getApps().length ? getApp() : initializeApp(config);
-  const auth = getAuth(app);
-  const functions = getFunctions(app, "asia-northeast3");
-  if (process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATORS === "true") {
-    connectFunctionsEmulator(functions, "127.0.0.1", 5001);
-  }
-
   const appCheckSiteKey = process.env.NEXT_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY;
   if (appCheckSiteKey && !appCheckInitialized) {
     initializeAppCheck(app, {
@@ -57,6 +51,12 @@ export function getFirebaseClient(): FirebaseClient | null {
       isTokenAutoRefreshEnabled: true,
     });
     appCheckInitialized = true;
+  }
+
+  const auth = getAuth(app);
+  const functions = getFunctions(app, "asia-northeast3");
+  if (process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATORS === "true") {
+    connectFunctionsEmulator(functions, "127.0.0.1", 5001);
   }
 
   client = { app, auth, functions };

@@ -25,6 +25,16 @@ env:
     availability:
       - BUILD
       - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:126271004619:web:3bc3d47cfe8a67bff7a04e
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY
+    value: 6LdVlIQtAAAAADQX6RA5fJ0la_qnNgsWXFFFSQrO
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: NEXT_PUBLIC_CONTACT_FEEDBACK_BACKEND
     value: firebase
     availability:
