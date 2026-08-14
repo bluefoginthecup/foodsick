@@ -67,12 +67,13 @@ export async function fetchKakaoRestaurants(
   if (!response.ok) throw new Error(`Kakao Local API returned ${response.status}`);
   const payload = await response.json() as KakaoSearchResponse;
   const regionTokens = region.split(/\s+/).filter((token) => token.length >= 2);
+  const specificRegionTokens = regionTokens.length >= 3 ? regionTokens.slice(-2) : regionTokens.slice(-1);
   return (payload.documents ?? [])
     .filter((place) => place.id && place.place_name && isFoodPlace(place))
     .filter((place) => {
-      if (!regionTokens.length) return true;
+      if (!specificRegionTokens.length) return true;
       const address = `${place.road_address_name} ${place.address_name}`;
-      return regionTokens.some((token) => address.includes(token));
+      return specificRegionTokens.every((token) => address.includes(token));
     })
     .map((place) => ({
       internalId: `kakao_${place.id}`,
