@@ -31,6 +31,16 @@ export type RegionalContactsError = {
   message: string;
 };
 
+export function regionSelectionLabel(selection: RegionSelection) {
+  return [selection.sido, selection.city, selection.district, selection.dong]
+    .filter((value, index, values): value is string => Boolean(value) && value !== values[index - 1])
+    .join(" ");
+}
+
+export function regionSelectionKey(selection: RegionSelection) {
+  return [selection.sido, selection.city, selection.district, selection.dong].join("|");
+}
+
 export function phoneHref(phone: string) {
   return `tel:${phone.replace(/[^\d+]/g, "")}`;
 }

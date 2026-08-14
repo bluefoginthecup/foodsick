@@ -2,7 +2,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { adminDb } from "../../../server/firebase-admin";
 import { fetchKakaoRegionalContacts } from "./kakao";
 import { fetchOfficialFoodSafetyContact } from "./official-organizations";
-import type { RegionSelection, RegionalContactsError, RegionalContactsResponse } from "../../../regional-contacts";
+import { regionSelectionLabel, type RegionSelection, type RegionalContactsError, type RegionalContactsResponse } from "../../regional-contacts";
 import { contactCacheFreshness } from "./cache-policy";
 
 const REGION_VALUE = /^[가-힣A-Za-z0-9·\-\s]{0,40}$/;
@@ -34,7 +34,7 @@ function regionKey(selection: RegionSelection) {
 }
 
 function regionLabel(selection: RegionSelection) {
-  return [selection.sido, selection.city, selection.district, selection.dong].filter(Boolean).join(" ");
+  return regionSelectionLabel(selection);
 }
 
 async function readCachedContacts(selection: RegionSelection) {

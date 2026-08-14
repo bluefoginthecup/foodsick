@@ -6,6 +6,7 @@ import { FOOD_CATEGORIES, type FoodCategory } from "./contracts";
 import { publicSignals, SIGNAL_DATA_END, SIGNAL_DATA_START, type PublicSignal } from "./mock-signals";
 import {
   phoneHref,
+  regionSelectionKey,
   type RegionSelection,
   type RegionalContactsError,
   type RegionalContactsResponse,
@@ -44,11 +45,12 @@ function googleSearchUrl(query: string) {
 
 type ContactState =
   | { status: "idle" | "loading"; data: null; message: string }
-  | { status: "loaded"; data: RegionalContactsResponse; message: string }
+  | { status: "loaded"; data: RegionalContactsResponse; message: string; selectionKey: string }
   | { status: "error"; data: null; message: string };
 
 function RegionalHelp({ region, selection }: { region: string; selection: RegionSelection }) {
   const { sido, city, district, dong } = selection;
+  const activeSelectionKey = regionSelectionKey(selection);
   const [fetchedContactState, setContactState] = useState<ContactState>({
     status: "idle",
     data: null,
@@ -84,14 +86,14 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
         const response = await fetch(endpoint, { headers: { Accept: "application/json" }, signal: controller.signal });
         const payload = await readJsonResponse<RegionalContactsResponse | RegionalContactsError>(response, "연락처를 불러오지 못했습니다");
         if (!response.ok || "error" in payload) throw new Error("message" in payload ? payload.message : "연락처를 불러오지 못했습니다.");
-        setContactState({ status: "loaded", data: payload, message: "" });
+        setContactState({ status: "loaded", data: payload, message: "", selectionKey: activeSelectionKey });
         if (payload.cache !== "stale") return;
 
         setContactRefreshing(true);
         try {
           const refreshed = await fetch(`${endpoint}&refresh=1`, { headers: { Accept: "application/json" }, signal: controller.signal });
           const refreshedPayload = await readJsonResponse<RegionalContactsResponse | RegionalContactsError>(refreshed, "연락처를 새로 확인하지 못했습니다");
-          if (refreshed.ok && !("error" in refreshedPayload)) setContactState({ status: "loaded", data: refreshedPayload, message: "" });
+          if (refreshed.ok && !("error" in refreshedPayload)) setContactState({ status: "loaded", data: refreshedPayload, message: "", selectionKey: activeSelectionKey });
         } catch (error) {
           if (!controller.signal.aborted) console.error("Regional contact background refresh failed", error);
         } finally {
@@ -107,11 +109,11 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
       }
     })();
     return () => controller.abort();
-  }, [city, district, dong, refreshKey, sido]);
+  }, [activeSelectionKey, city, district, dong, refreshKey, sido]);
 
   const contactState: ContactState = !sido || !city
     ? { status: "idle", data: null, message: "시·군·구를 선택하면 최신 연락처를 조회합니다." }
-    : fetchedContactState.status === "loaded" && fetchedContactState.data.region !== region
+    : fetchedContactState.status === "loaded" && fetchedContactState.selectionKey !== activeSelectionKey
       ? { status: "loading", data: null, message: "API에서 최신 연락처를 불러오는 중입니다." }
       : fetchedContactState;
   const contactSlots = expectedRegionalContactSlots(selection, contactState.status === "loaded" ? contactState.data.contacts : []);

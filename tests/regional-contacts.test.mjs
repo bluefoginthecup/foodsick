@@ -6,7 +6,7 @@ import {
   parseFoodSafetyStaff,
   parseOrganizations,
 } from "../app/api/regional-contacts/official-organizations.ts";
-import { phoneHref } from "../app/regional-contacts.ts";
+import { phoneHref, regionSelectionKey, regionSelectionLabel } from "../app/regional-contacts.ts";
 import { contactCacheFreshness } from "../app/api/regional-contacts/cache-policy.ts";
 import { expectedRegionalContactSlots } from "../app/regional-contact-slots.ts";
 
@@ -15,6 +15,14 @@ test("keeps regional contact data fresh for six hours and available as stale fal
   assert.equal(contactCacheFreshness(new Date(now - 5 * 60 * 60 * 1000), now), "fresh");
   assert.equal(contactCacheFreshness(new Date(now - 7 * 60 * 60 * 1000), now), "stale");
   assert.equal(contactCacheFreshness(new Date(now - 31 * 24 * 60 * 60 * 1000), now), "expired");
+});
+
+test("deduplicates repeated administrative levels without conflating the request identity", () => {
+  const county = { sido: "전북특별자치도", city: "순창군", district: "순창군", dong: "" };
+  const metropolitan = { sido: "울산광역시", city: "울산광역시", district: "중구", dong: "" };
+  assert.equal(regionSelectionLabel(county), "전북특별자치도 순창군");
+  assert.equal(regionSelectionLabel(metropolitan), "울산광역시 중구");
+  assert.equal(regionSelectionKey(county), "전북특별자치도|순창군|순창군|");
 });
 
 test("separates metropolitan city hall and district office searches", () => {
