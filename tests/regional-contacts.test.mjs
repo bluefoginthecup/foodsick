@@ -23,6 +23,7 @@ test("deduplicates repeated administrative levels without conflating the request
   assert.equal(regionSelectionLabel(county), "전북특별자치도 순창군");
   assert.equal(regionSelectionLabel(metropolitan), "울산광역시 중구");
   assert.equal(regionSelectionKey(county), "전북특별자치도|순창군|순창군|");
+  assert.ok(contactQueries(county).every((query) => !query.query.includes("순창군 순창군")));
 });
 
 test("separates metropolitan city hall and district office searches", () => {

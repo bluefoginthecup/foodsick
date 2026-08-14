@@ -1,4 +1,4 @@
-import type { ContactKind, RegionSelection, RegionalContact } from "../../../regional-contacts";
+import { regionSelectionLabel, type ContactKind, type RegionSelection, type RegionalContact } from "../../regional-contacts.ts";
 
 type KakaoPlace = {
   place_name: string;
@@ -26,7 +26,7 @@ type FetchLike = typeof fetch;
 const KAKAO_KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json";
 
 export function contactQueries(selection: RegionSelection): ContactQuery[] {
-  const prefix = [selection.sido, selection.city, selection.district].filter(Boolean).join(" ");
+  const prefix = regionSelectionLabel({ ...selection, dong: "" });
   const metropolitan = /(?:특별시|광역시|특별자치시)$/.test(selection.sido);
   const metropolitanDistrict = /(?:특별시|광역시)$/.test(selection.sido);
   const cityOfficeName = metropolitan ? `${selection.sido}청` : `${selection.city}청`;
@@ -50,7 +50,7 @@ export function contactQueries(selection: RegionSelection): ContactQuery[] {
     queries.splice(1, 0, {
       kind: "district_office",
       label: "관할 구청",
-      query: `${selection.sido} ${selection.city} ${selection.district}청`,
+      query: `${prefix}청`,
       expectedName: `${selection.district}청`,
       categoryGroup: "PO3",
     });

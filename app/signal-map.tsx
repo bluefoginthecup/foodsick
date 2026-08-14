@@ -17,6 +17,7 @@ import {
   buildAdministrativeSearchIndex,
   cityName,
   districtName,
+  isOneTierRegion,
   regionMatches,
   searchAdministrativeRegions,
   selectedRegionLabel,
@@ -432,6 +433,7 @@ export function SignalMap() {
     dong: activeSignal.dong,
   } : EMPTY_SELECTION;
   const selectedRegion = selectedRegionLabel(helpSelection) || "대한민국";
+  const oneTierSelection = isOneTierRegion(selection);
 
   const selectSearchResult = (result: (typeof searchResults)[number]) => {
     setSelection(result.selection);
@@ -463,6 +465,15 @@ export function SignalMap() {
     if (target === "sido") setSelection(EMPTY_SELECTION);
     if (target === "city") setSelection((current) => ({ sido: current.sido, city: "", district: "", dong: "" }));
     if (target === "district") setSelection((current) => ({ ...current, district: "", dong: "" }));
+  };
+
+  const resetCityOrDistrict = () => {
+    if (!oneTierSelection) {
+      resetTo("district");
+      return;
+    }
+    setLevel("dong");
+    setSelection((current) => ({ ...current, dong: "" }));
   };
 
   return (
@@ -518,8 +529,8 @@ export function SignalMap() {
       <nav className="map-breadcrumb" aria-label="행정구역 단계">
         <button aria-current={level === "sido" ? "page" : undefined} onClick={() => resetTo("sido")} type="button">시/도</button>
         {selection.sido && <><span>›</span><button aria-current={level === "city" ? "page" : undefined} onClick={() => resetTo("city")} type="button">{selection.sido}</button></>}
-        {selection.city && <><span>›</span><button aria-current={level === "district" ? "page" : undefined} onClick={() => resetTo("district")} type="button">{selection.city}</button></>}
-        {selection.district && <><span>›</span><button aria-current={level === "dong" && !selection.dong ? "page" : undefined} type="button">{selection.district}</button></>}
+        {selection.city && <><span>›</span><button aria-current={(level === "district" || (oneTierSelection && level === "dong" && !selection.dong)) ? "page" : undefined} onClick={resetCityOrDistrict} type="button">{selection.city}</button></>}
+        {selection.district && !oneTierSelection && <><span>›</span><button aria-current={level === "dong" && !selection.dong ? "page" : undefined} type="button">{selection.district}</button></>}
         {selection.dong && <><span>›</span><button aria-current="page" type="button">{selection.dong}</button></>}
       </nav>
 

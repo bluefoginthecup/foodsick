@@ -1,4 +1,4 @@
-import type { RegionSelection, RegionalContact } from "../../../regional-contacts";
+import { regionSelectionLabel, type RegionSelection, type RegionalContact } from "../../regional-contacts.ts";
 
 type FetchLike = typeof fetch;
 
@@ -60,7 +60,7 @@ async function searchOrganizations(selection: RegionSelection, fetcher: FetchLik
     codeseId: "00001",
     cPage: "1",
     sortedIndex: "0",
-    fullNm: [selection.sido, selection.city, selection.district].filter(Boolean).join(" "),
+    fullNm: regionSelectionLabel({ ...selection, dong: "" }),
     lowNm: "",
     orgCd: "",
     highCd: "0",
@@ -84,7 +84,7 @@ async function searchOrganizations(selection: RegionSelection, fetcher: FetchLik
 }
 
 function selectDepartment(organizations: Organization[], selection: RegionSelection) {
-  const expectedPrefix = [selection.sido, selection.city, selection.district].filter(Boolean).join(" ");
+  const expectedPrefix = regionSelectionLabel({ ...selection, dong: "" });
   return organizations
     .filter((organization) => organization.fullName.startsWith(expectedPrefix) && FOOD_SAFETY_DEPARTMENT.test(organization.name))
     .sort((left, right) => {
@@ -144,7 +144,7 @@ export async function fetchOfficialFoodSafetyContact(
     label: "관할 식품위생 담당",
     name: department.fullName.replace(`${selection.sido} ${selection.city} `, ""),
     phone: department.phone,
-    address: `${selection.sido} ${selection.city} ${selection.district}`,
+    address: regionSelectionLabel({ ...selection, dong: "" }),
     sourceUrl: ORGANIZATION_SEARCH_PAGE,
     sourceLabel: "행정안전부 공식 조직정보",
   };

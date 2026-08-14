@@ -29,6 +29,10 @@ export function selectedRegionLabel(selection: RegionSelection) {
     .join(" ");
 }
 
+export function isOneTierRegion(selection: RegionSelection) {
+  return Boolean(selection.city) && selection.city === selection.district;
+}
+
 export function regionMatches<T extends RegionSelection>(item: T, selection: RegionSelection) {
   return (selection.sido ? item.sido === selection.sido : true)
     && (selection.city ? item.city === selection.city : true)
@@ -63,7 +67,7 @@ export function buildAdministrativeSearchIndex(data: SearchBoundaryData): Admini
     add({
       id: `district:${properties.sidonm}:${city}:${district}`,
       label: selectedRegionLabel({ sido: properties.sidonm, city, district, dong: "" }),
-      detail: city === district ? "시·군·구" : "구",
+      detail: city === district ? "시·군" : "구",
       targetLevel: "dong",
       selection: { sido: properties.sidonm, city, district, dong: "" },
     });

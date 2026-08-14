@@ -32,9 +32,12 @@ export type RegionalContactsError = {
 };
 
 export function regionSelectionLabel(selection: RegionSelection) {
+  return regionSelectionParts(selection).join(" ");
+}
+
+export function regionSelectionParts(selection: RegionSelection) {
   return [selection.sido, selection.city, selection.district, selection.dong]
-    .filter((value, index, values): value is string => Boolean(value) && value !== values[index - 1])
-    .join(" ");
+    .filter((value, index, values): value is string => Boolean(value) && value !== values[index - 1]);
 }
 
 export function regionSelectionKey(selection: RegionSelection) {
