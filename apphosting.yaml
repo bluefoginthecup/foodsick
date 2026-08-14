@@ -30,3 +30,7 @@ env:
     availability:
       - BUILD
       - RUNTIME
+  - variable: KAKAO_REST_API_KEY
+    secret: KAKAO_REST_API_KEY
+    availability:
+      - RUNTIME

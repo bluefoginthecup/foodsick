@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { firebaseAuthHeaders } from "../firebase/auth-header";
 
 type ReviewApplication = {
   id: string;
@@ -34,28 +35,22 @@ export function LawFirmReviewPanel() {
 
   const load = useCallback(() => {
     setState("loading");
-    void fetch("/api/law-firms/admin").then(async (response) => {
-      if (!response.ok) throw new Error();
-      const payload = await response.json() as { applications: ReviewApplication[] };
-      setApplications(payload.applications);
-      setState("loaded");
-    }).catch(() => setState("error"));
+    void firebaseAuthHeaders().then((headers) => fetch("/api/law-firms/admin", { headers })).then(async (response) => {
+        if (!response.ok) throw new Error();
+        const payload = await response.json() as { applications: ReviewApplication[] };
+        setApplications(payload.applications);
+        setState("loaded");
+      }).catch(() => setState("error"));
   }, []);
   useEffect(() => {
-    const controller = new AbortController();
-    void fetch("/api/law-firms/admin", { signal: controller.signal }).then(async (response) => {
-      if (!response.ok) throw new Error();
-      const payload = await response.json() as { applications: ReviewApplication[] };
-      setApplications(payload.applications);
-      setState("loaded");
-    }).catch(() => { if (!controller.signal.aborted) setState("error"); });
-    return () => controller.abort();
-  }, []);
+    void Promise.resolve().then(load);
+  }, [load]);
 
   const review = async (id: string, status: "verified" | "rejected") => {
+    const authHeaders = await firebaseAuthHeaders();
     const response = await fetch("/api/law-firms/admin", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders },
       body: JSON.stringify({ id, status, note: notes[id] ?? "" }),
     });
     if (response.ok) load();

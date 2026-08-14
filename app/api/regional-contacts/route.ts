@@ -1,6 +1,5 @@
-import { eq } from "drizzle-orm";
-import { getDb } from "../../../db";
-import { regionalContactCache } from "../../../db/schema";
+import { Timestamp } from "firebase-admin/firestore";
+import { adminDb } from "../../../server/firebase-admin";
 import { fetchKakaoRegionalContacts } from "./kakao";
 import { fetchOfficialFoodSafetyContact } from "./official-organizations";
 import type { RegionSelection, RegionalContactsError, RegionalContactsResponse } from "../../../regional-contacts";
@@ -40,14 +39,16 @@ function regionLabel(selection: RegionSelection) {
 
 async function readCachedContacts(selection: RegionSelection) {
   try {
-    const db = getDb();
-    const [row] = await db.select().from(regionalContactCache).where(eq(regionalContactCache.regionKey, regionKey(selection))).limit(1);
-    if (!row || contactCacheFreshness(row.fetchedAt) === "expired") return null;
-    const cached = JSON.parse(row.payload) as Omit<RegionalContactsResponse, "cache" | "cacheAgeSeconds">;
+    const snapshot = await adminDb.collection("regionalContactCache").doc(regionKey(selection)).get();
+    if (!snapshot.exists) return null;
+    const fetchedAtValue = snapshot.get("fetchedAt");
+    const fetchedAt = fetchedAtValue instanceof Timestamp ? fetchedAtValue.toDate() : null;
+    if (!fetchedAt || contactCacheFreshness(fetchedAt) === "expired") return null;
+    const cached = snapshot.get("payload") as Omit<RegionalContactsResponse, "cache" | "cacheAgeSeconds">;
     return {
       response: cached,
-      freshness: contactCacheFreshness(row.fetchedAt),
-      ageSeconds: Math.max(0, Math.floor((Date.now() - row.fetchedAt.getTime()) / 1000)),
+      freshness: contactCacheFreshness(fetchedAt),
+      ageSeconds: Math.max(0, Math.floor((Date.now() - fetchedAt.getTime()) / 1000)),
     };
   } catch (error) {
     console.error("Regional contact cache read failed", error);
@@ -57,18 +58,14 @@ async function readCachedContacts(selection: RegionSelection) {
 
 async function writeCachedContacts(selection: RegionSelection, response: Omit<RegionalContactsResponse, "cache" | "cacheAgeSeconds">) {
   try {
-    const db = getDb();
     const now = new Date();
-    await db.insert(regionalContactCache).values({
+    await adminDb.collection("regionalContactCache").doc(regionKey(selection)).set({
       regionKey: regionKey(selection),
       region: response.region,
-      payload: JSON.stringify(response),
+      payload: response,
       fetchedAt: new Date(response.fetchedAt),
       updatedAt: now,
-    }).onConflictDoUpdate({
-      target: regionalContactCache.regionKey,
-      set: { region: response.region, payload: JSON.stringify(response), fetchedAt: new Date(response.fetchedAt), updatedAt: now },
-    });
+    }, { merge: true });
   } catch (error) {
     console.error("Regional contact cache write failed", error);
   }

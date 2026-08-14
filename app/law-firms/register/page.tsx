@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { NativeLink } from "../../native-link";
+import { firebaseAuthHeaders } from "../../firebase/auth-header";
 import type { LawFirmApplicationInput } from "../types";
 
 const initialForm: LawFirmApplicationInput = {
@@ -21,7 +22,8 @@ export default function LawFirmRegisterPage() {
     event.preventDefault();
     setState({ status: "sending", message: "등록 내용을 안전하게 접수하는 중입니다." });
     try {
-      const response = await fetch("/api/law-firms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const authHeaders = await firebaseAuthHeaders();
+      const response = await fetch("/api/law-firms", { method: "POST", headers: { "Content-Type": "application/json", ...authHeaders }, body: JSON.stringify(form) });
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error || "등록 신청을 접수하지 못했습니다.");
       setState({ status: "done", message: "등록 신청이 접수되었습니다. 관리자 검증 전에는 공개되지 않습니다." });
