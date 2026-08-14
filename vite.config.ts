@@ -40,20 +40,29 @@ export default defineConfig(async () => {
   process.env.WRANGLER_LOG_PATH ??= ".wrangler/logs";
   process.env.MINIFLARE_REGISTRY_PATH ??= ".wrangler/registry";
 
-  // Wrangler snapshots its log path while the Cloudflare plugin is imported.
-  const { cloudflare } = await import("@cloudflare/vite-plugin");
+  // Firebase App Hosting is the production target. The legacy Sites target can
+  // still opt into its Cloudflare adapter with SITES_BUILD=true.
+  const sitesBuild = process.env.SITES_BUILD === "true";
+  const cloudflarePlugin = sitesBuild
+    ? (await import("@cloudflare/vite-plugin")).cloudflare({
+        viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
+        config: localBindingConfig,
+      })
+    : null;
 
   return {
+    ssr: {
+      // Firebase Admin depends on CommonJS globals such as __dirname. Keep it
+      // outside Vinext's ESM server bundle so Node.js loads it natively.
+      external: ["firebase-admin"],
+    },
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,
     plugins: [
       vinext(),
       sites(),
-      cloudflare({
-        viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
-        config: localBindingConfig,
-      }),
+      ...(cloudflarePlugin ? [cloudflarePlugin] : []),
     ],
   };
 });

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { firebaseAuthHeaders } from "../firebase/auth-header";
+import { readJsonResponse } from "../http-response";
 
 type ReviewApplication = {
   id: string;
@@ -37,7 +38,7 @@ export function LawFirmReviewPanel() {
     setState("loading");
     void firebaseAuthHeaders().then((headers) => fetch("/api/law-firms/admin", { headers })).then(async (response) => {
         if (!response.ok) throw new Error();
-        const payload = await response.json() as { applications: ReviewApplication[] };
+        const payload = await readJsonResponse<{ applications: ReviewApplication[] }>(response, "등록 신청 목록을 불러오지 못했습니다");
         setApplications(payload.applications);
         setState("loaded");
       }).catch(() => setState("error"));

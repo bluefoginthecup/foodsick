@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { NativeLink } from "../../native-link";
 import { firebaseAuthHeaders } from "../../firebase/auth-header";
 import type { LawFirmApplicationInput } from "../types";
+import { readJsonResponse } from "../../http-response";
 
 const initialForm: LawFirmApplicationInput = {
   firmName: "", branchName: "", representativeLawyer: "", barRegistrationNumber: "", phone: "", website: "", address: "", region: "",
@@ -24,7 +25,7 @@ export default function LawFirmRegisterPage() {
     try {
       const authHeaders = await firebaseAuthHeaders();
       const response = await fetch("/api/law-firms", { method: "POST", headers: { "Content-Type": "application/json", ...authHeaders }, body: JSON.stringify(form) });
-      const payload = await response.json() as { error?: string };
+      const payload = await readJsonResponse<{ error?: string }>(response, "등록 신청을 접수하지 못했습니다");
       if (!response.ok) throw new Error(payload.error || "등록 신청을 접수하지 못했습니다.");
       setState({ status: "done", message: "등록 신청이 접수되었습니다. 관리자 검증 전에는 공개되지 않습니다." });
     } catch (error) {

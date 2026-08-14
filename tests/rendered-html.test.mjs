@@ -1,14 +1,55 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { spawn } from "node:child_process";
+import { after, before, test } from "node:test";
 
-async function render() {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-  return worker.fetch(new Request("http://localhost/", { headers: { accept: "text/html" } }), {
-    ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
-  }, { waitUntil() {}, passThroughOnException() {} });
+const port = 32000 + Math.floor(Math.random() * 2000);
+const baseUrl = `http://127.0.0.1:${port}`;
+let server;
+
+before(async () => {
+  server = spawn(process.execPath, ["scripts/start-production.mjs"], {
+    cwd: new URL("..", import.meta.url),
+    env: { ...process.env, PORT: String(port) },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("Production test server did not start")), 10_000);
+    server.once("error", reject);
+    server.stdout.on("data", (chunk) => {
+      if (String(chunk).includes("Production server running")) {
+        clearTimeout(timeout);
+        resolve();
+      }
+    });
+    server.stderr.on("data", (chunk) => {
+      if (String(chunk).includes("Server error")) {
+        clearTimeout(timeout);
+        reject(new Error(String(chunk)));
+      }
+    });
+  });
+});
+
+after(() => {
+  server?.kill();
+});
+
+async function render(pathname = "/") {
+  return fetch(`${baseUrl}${pathname}`, { headers: { accept: "text/html" } });
 }
+
+test("keeps Firebase-backed API failures as JSON", async () => {
+  const endpoints = [
+    "/api/law-firms",
+    "/api/regional-contacts?sido=%EC%9A%B8%EC%82%B0%EA%B4%91%EC%97%AD%EC%8B%9C&city=%EC%9A%B8%EC%82%B0%EA%B4%91%EC%97%AD%EC%8B%9C&district=%EC%A4%91%EA%B5%AC&dong=",
+  ];
+  for (const endpoint of endpoints) {
+    const response = await fetch(`${baseUrl}${endpoint}`, { headers: { accept: "application/json" } });
+    assert.match(response.headers.get("content-type") ?? "", /^application\/json/);
+    const payload = await response.json();
+    assert.equal(typeof payload.error, "string");
+  }
+});
 
 test("renders the Korean mobile-first foundation", async () => {
   const response = await render();
@@ -43,12 +84,7 @@ test("renders the Korean mobile-first foundation", async () => {
 });
 
 test("renders Kakao login without requesting profile data", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("login-test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-  const response = await worker.fetch(new Request("http://localhost/login", { headers: { accept: "text/html" } }), {
-    ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
-  }, { waitUntil() {}, passThroughOnException() {} });
+  const response = await render("/login");
   const html = await response.text();
   assert.equal(response.status, 200);
   assert.match(html, /카카오로 시작하기/);
@@ -57,10 +93,7 @@ test("renders Kakao login without requesting profile data", async () => {
 });
 
 test("renders the legal response, precedent, and verified law-firm directory", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("law-help-test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-  const response = await worker.fetch(new Request("http://localhost/law-help", { headers: { accept: "text/html" } }), { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } }, { waitUntil() {}, passThroughOnException() {} });
+  const response = await render("/law-help");
   const html = await response.text();
   assert.equal(response.status, 200);
   assert.match(html, /상담 전에 준비하세요/);
@@ -70,10 +103,7 @@ test("renders the legal response, precedent, and verified law-firm directory", a
 });
 
 test("renders private evidence fields for voluntary law-firm registration", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("firm-register-test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-  const response = await worker.fetch(new Request("http://localhost/law-firms/register", { headers: { accept: "text/html" } }), { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } }, { waitUntil() {}, passThroughOnException() {} });
+  const response = await render("/law-firms/register");
   const html = await response.text();
   assert.equal(response.status, 200);
   assert.match(html, /사건번호로 확인/);
@@ -82,12 +112,7 @@ test("renders private evidence fields for voluntary law-firm registration", asyn
 });
 
 test("keeps the report form behind authentication", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("report-test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-  const response = await worker.fetch(new Request("http://localhost/report", { headers: { accept: "text/html" } }), {
-    ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
-  }, { waitUntil() {}, passThroughOnException() {} });
+  const response = await render("/report");
   const html = await response.text();
   assert.equal(response.status, 200);
   assert.match(html, /로그인이 필요해요/);
@@ -95,12 +120,7 @@ test("keeps the report form behind authentication", async () => {
 });
 
 test("keeps my reports behind the same session identity", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("my-report-test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-  const response = await worker.fetch(new Request("http://localhost/my-reports", { headers: { accept: "text/html" } }), {
-    ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
-  }, { waitUntil() {}, passThroughOnException() {} });
+  const response = await render("/my-reports");
   const html = await response.text();
   assert.equal(response.status, 200);
   assert.match(html, /내 신고를 보려면/);
@@ -108,12 +128,7 @@ test("keeps my reports behind the same session identity", async () => {
 });
 
 test("keeps the administrator area behind a role claim", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("admin-test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-  const response = await worker.fetch(new Request("http://localhost/admin", { headers: { accept: "text/html" } }), {
-    ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
-  }, { waitUntil() {}, passThroughOnException() {} });
+  const response = await render("/admin");
   const html = await response.text();
   assert.equal(response.status, 200);
   assert.match(html, /관리자 권한이 필요합니다/);

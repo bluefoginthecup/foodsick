@@ -21,6 +21,7 @@ import {
   selectedRegionLabel,
 } from "./administrative-search";
 import { expectedRegionalContactSlots } from "./regional-contact-slots";
+import { readJsonResponse } from "./http-response";
 
 type MapLevel = "sido" | "city" | "district" | "dong";
 type BoundaryFeature = AdmFeature<SidoProperties | SggProperties | EmdProperties>;
@@ -81,7 +82,7 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
     void (async () => {
       try {
         const response = await fetch(endpoint, { headers: { Accept: "application/json" }, signal: controller.signal });
-        const payload = await response.json() as RegionalContactsResponse | RegionalContactsError;
+        const payload = await readJsonResponse<RegionalContactsResponse | RegionalContactsError>(response, "연락처를 불러오지 못했습니다");
         if (!response.ok || "error" in payload) throw new Error("message" in payload ? payload.message : "연락처를 불러오지 못했습니다.");
         setContactState({ status: "loaded", data: payload, message: "" });
         if (payload.cache !== "stale") return;
@@ -89,7 +90,7 @@ function RegionalHelp({ region, selection }: { region: string; selection: Region
         setContactRefreshing(true);
         try {
           const refreshed = await fetch(`${endpoint}&refresh=1`, { headers: { Accept: "application/json" }, signal: controller.signal });
-          const refreshedPayload = await refreshed.json() as RegionalContactsResponse | RegionalContactsError;
+          const refreshedPayload = await readJsonResponse<RegionalContactsResponse | RegionalContactsError>(refreshed, "연락처를 새로 확인하지 못했습니다");
           if (refreshed.ok && !("error" in refreshedPayload)) setContactState({ status: "loaded", data: refreshedPayload, message: "" });
         } catch (error) {
           if (!controller.signal.aborted) console.error("Regional contact background refresh failed", error);

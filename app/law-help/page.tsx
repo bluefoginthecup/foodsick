@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { NativeLink } from "../native-link";
 import type { PublicLawFirm } from "../law-firms/types";
+import { readJsonResponse } from "../http-response";
 
 const responseSteps = [
   { no: "01", title: "진료·검사 기록 보존", copy: "진료기록, 검사결과, 영수증과 처방전을 한곳에 보관하세요." },
@@ -20,7 +21,7 @@ export default function LawHelpPage() {
     const controller = new AbortController();
     void fetch("/api/law-firms", { signal: controller.signal }).then(async (response) => {
       if (!response.ok) throw new Error();
-      const payload = await response.json() as { firms: PublicLawFirm[] };
+      const payload = await readJsonResponse<{ firms: PublicLawFirm[] }>(response, "로펌 목록을 불러오지 못했습니다");
       setFirms(payload.firms);
       setStatus("loaded");
     }).catch(() => { if (!controller.signal.aborted) setStatus("error"); });
