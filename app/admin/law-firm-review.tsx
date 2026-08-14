@@ -10,6 +10,7 @@ type ReviewApplication = {
   branchName: string;
   representativeLawyer: string;
   barRegistrationNumber: string;
+  lawyers?: Array<{ name: string; barRegistrationNumber: string }>;
   phone: string;
   website: string;
   address: string;
@@ -27,6 +28,16 @@ type ReviewApplication = {
     victimCountBand: string;
     caseCount: number;
   };
+  experiences?: Array<{
+    evidenceType: "case_number" | "summary";
+    courtName: string;
+    caseNumber: string;
+    precedentUrl: string;
+    eventRegion: string;
+    eventMonth: string;
+    victimCountBand: string;
+    caseCount: number;
+  }>;
 };
 
 export function LawFirmReviewPanel() {
@@ -65,11 +76,9 @@ export function LawFirmReviewPanel() {
   return <section className="firm-review-list" aria-label="로펌 등록 검증 목록">{applications.map((item) => (
     <article key={item.id}>
       <div className="firm-review-title"><div><span className={`firm-review-status ${item.status}`}>{item.status}</span><h2>{item.firmName} {item.branchName}</h2><p>{item.representativeLawyer} 변호사 · {item.region}</p></div><time>{new Date(item.createdAt).toLocaleDateString("ko-KR")}</time></div>
-      <dl><div><dt>변호사 등록번호</dt><dd>{item.barRegistrationNumber}</dd></div><div><dt>연락처</dt><dd>{item.phone}</dd></div><div><dt>주소</dt><dd>{item.address}</dd></div><div><dt>수임 사건</dt><dd>{item.experience.caseCount}건</dd></div></dl>
-      <div className="evidence-review">
-        <strong>{item.experience.evidenceType === "case_number" ? "사건번호 증빙" : "익명 경력정보"}</strong>
-        {item.experience.evidenceType === "case_number" ? <p>{item.experience.courtName} · {item.experience.caseNumber}{item.experience.precedentUrl && <> · <a href={item.experience.precedentUrl} rel="noreferrer" target="_blank">공개 판결 ↗</a></>}</p> : <p>{item.experience.eventRegion} · {item.experience.eventMonth} · 피해자 {item.experience.victimCountBand}</p>}
-      </div>
+      <dl><div><dt>소속 변호사</dt><dd>{item.lawyers?.length || 1}명</dd></div><div><dt>연락처</dt><dd>{item.phone}</dd></div><div><dt>주소</dt><dd>{item.address}</dd></div><div><dt>수임 사건</dt><dd>{item.experience.caseCount}건</dd></div></dl>
+      <div className="evidence-review"><strong>변호사 등록번호</strong>{(item.lawyers?.length ? item.lawyers : [{ name: item.representativeLawyer, barRegistrationNumber: item.barRegistrationNumber }]).map((lawyer, index) => <p key={`${lawyer.barRegistrationNumber}-${index}`}>{index + 1}. {lawyer.name} · {lawyer.barRegistrationNumber}</p>)}</div>
+      <div className="evidence-review"><strong>사건기록 {(item.experiences?.length || 1)}건</strong>{(item.experiences?.length ? item.experiences : [item.experience]).map((experience, index) => experience.evidenceType === "case_number" ? <p key={index}>{index + 1}. {experience.courtName} · {experience.caseNumber}{experience.precedentUrl && <> · <a href={experience.precedentUrl} rel="noreferrer" target="_blank">공개 판결 ↗</a></>}</p> : <p key={index}>{index + 1}. {experience.eventRegion} · {experience.eventMonth} · 피해자 {experience.victimCountBand} · {experience.caseCount}건</p>)}</div>
       <label className="review-note">검토 메모<input onChange={(event) => setNotes((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="추가 확인사항 또는 반려 사유" value={notes[item.id] ?? item.reviewNote} /></label>
       <div className="firm-review-actions"><button onClick={() => void review(item.id, "verified")} type="button">검증 완료·공개</button><button onClick={() => void review(item.id, "rejected")} type="button">반려</button><a href={item.website} rel="noreferrer" target="_blank">홈페이지 확인 ↗</a></div>
     </article>

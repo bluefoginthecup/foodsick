@@ -41,6 +41,7 @@ async function render(pathname = "/") {
 test("keeps Firebase-backed API failures as JSON", async () => {
   const endpoints = [
     "/api/law-firms",
+    "/api/restaurants/search?q=%EC%98%81%EB%8D%95%EA%B0%88%EB%B9%84&region=%EA%B2%BD%EA%B8%B0%EB%8F%84%20%EC%9A%A9%EC%9D%B8%EC%8B%9C",
     "/api/regional-contacts?sido=%EC%9A%B8%EC%82%B0%EA%B4%91%EC%97%AD%EC%8B%9C&city=%EC%9A%B8%EC%82%B0%EA%B4%91%EC%97%AD%EC%8B%9C&district=%EC%A4%91%EA%B5%AC&dong=",
   ];
   for (const endpoint of endpoints) {
@@ -109,6 +110,8 @@ test("renders private evidence fields for voluntary law-firm registration", asyn
   assert.match(html, /사건번호로 확인/);
   assert.match(html, /익명 정보로 제출/);
   assert.match(html, /사건번호와 변호사 등록번호는 관리자 검증용/);
+  assert.match(html, /변호사 추가/);
+  assert.match(html, /사건기록 추가/);
 });
 
 test("keeps the report form behind authentication", async () => {

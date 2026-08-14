@@ -2,14 +2,35 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { FOOD_CATEGORIES, type ReportDraft } from "../contracts";
+import {
+  COMPANION_GENDERS,
+  FOOD_CATEGORIES,
+  UNDERLYING_CONDITIONS,
+  type CompanionDraft,
+  type ReportDraft,
+} from "../contracts";
 import { useAuth } from "../auth/auth-context";
 import { NativeLink } from "../native-link";
-import { findRestaurantCandidates, restaurantCandidates } from "./restaurant-matcher";
+import { findRestaurantCandidates, type RestaurantCandidate } from "./restaurant-matcher";
 import { useReports, type StoredReport } from "../reports/report-store";
 
 const symptomOptions = ["설사", "구토", "복통", "발열", "오한", "혈변", "두통", "근육통"];
 const steps = ["식사", "증상", "동행", "의료·확인"];
+const genderLabels = { female: "여성", male: "남성", other: "기타", undisclosed: "응답하지 않음" } as const;
+
+function emptyCompanion(): CompanionDraft {
+  return {
+    age: "",
+    gender: "",
+    symptoms: [],
+    otherSymptom: "",
+    onsetAt: "",
+    medicalVisit: false,
+    tested: false,
+    underlyingConditions: [],
+    otherUnderlyingCondition: "",
+  };
+}
 
 const initialDraft: ReportDraft = {
   mealDate: "",
@@ -20,6 +41,7 @@ const initialDraft: ReportDraft = {
   restaurantInternalId: "",
   restaurantDisplayInput: "",
   foodCategory: "",
+  foodCategoryDetail: "",
   menu: "",
   serviceMode: "",
   symptoms: [],
@@ -29,6 +51,7 @@ const initialDraft: ReportDraft = {
   onsetTime: "",
   partyTotal: 1,
   partySymptomatic: 0,
+  companions: [],
   companionSymptoms: [],
   companionOnsetAt: "",
   companionMedicalVisit: false,
@@ -39,6 +62,22 @@ const initialDraft: ReportDraft = {
   pathogenKnown: false,
   pathogenType: "",
 };
+
+function normalizedDraft(source: ReportDraft): ReportDraft {
+  const companions = Array.from(
+    { length: source.partySymptomatic ?? 0 },
+    (_, index) => source.companions?.[index] ?? (index === 0 && source.companionSymptoms?.length
+      ? {
+          ...emptyCompanion(),
+          symptoms: source.companionSymptoms,
+          onsetAt: source.companionOnsetAt,
+          medicalVisit: source.companionMedicalVisit,
+          tested: source.companionTested,
+        }
+      : emptyCompanion()),
+  );
+  return { ...source, foodCategoryDetail: source.foodCategoryDetail ?? "", companions };
+}
 
 function ToggleGroup({
   label,
@@ -112,8 +151,39 @@ export function ReportWizard() {
   const [completedReport, setCompletedReport] = useState<StoredReport | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const candidates = useMemo(() => findRestaurantCandidates(draft.restaurantDisplayInput), [draft.restaurantDisplayInput]);
+  const restaurantSearchKey = useMemo(() => [draft.restaurantDisplayInput.trim(), draft.province, draft.city, draft.district].join("|"), [draft.city, draft.district, draft.province, draft.restaurantDisplayInput]);
+  const [restaurantSearch, setRestaurantSearch] = useState<{ key: string; status: "idle" | "loading" | "loaded" | "error"; candidates: RestaurantCandidate[]; message: string }>({
+    key: "",
+    status: "idle",
+    candidates: [],
+    message: "",
+  });
+  const activeRestaurantSearch = restaurantSearch.key === restaurantSearchKey
+    ? restaurantSearch
+    : { key: restaurantSearchKey, status: draft.restaurantDisplayInput.trim().length >= 2 ? "loading" as const : "idle" as const, candidates: [], message: "" };
+  const candidates = activeRestaurantSearch.candidates;
   const incubation = calculateIncubation(draft);
+
+  useEffect(() => {
+    const query = draft.restaurantDisplayInput.trim();
+    if (query.length < 2 || draft.restaurantInternalId) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setRestaurantSearch({ key: restaurantSearchKey, status: "loading", candidates: [], message: "음식점을 검색하는 중입니다." });
+      const region = [draft.province, draft.city, draft.district].filter(Boolean).join(" ");
+      void findRestaurantCandidates(query, region, controller.signal)
+        .then((results) => {
+          if (!controller.signal.aborted) setRestaurantSearch({ key: restaurantSearchKey, status: "loaded", candidates: results, message: results.length ? "" : "검색 결과가 없습니다." });
+        })
+        .catch((error) => {
+          if (!controller.signal.aborted) setRestaurantSearch({ key: restaurantSearchKey, status: "error", candidates: [], message: error instanceof Error ? error.message : "음식점을 검색하지 못했습니다." });
+        });
+    }, 350);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [draft.city, draft.district, draft.province, draft.restaurantDisplayInput, draft.restaurantInternalId, restaurantSearchKey]);
 
   /* The report store is restored after hydration, so edit data must be applied afterwards. */
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -121,7 +191,7 @@ export function ReportWizard() {
     if (!requestedEditId || !sessionRestored || !user || loadedEditId === requestedEditId) return;
     if (!requestedReport || requestedReport.ownerUid !== user.uid) return;
     setLoadedEditId(requestedEditId);
-    setDraft(structuredClone(requestedReport.draft));
+    setDraft(normalizedDraft(structuredClone(requestedReport.draft)));
     setEditingId(requestedReport.id);
     setStep(3);
     setConsented(false);
@@ -132,6 +202,21 @@ export function ReportWizard() {
 
   const patch = <K extends keyof ReportDraft>(key: K, value: ReportDraft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const setCompanionCount = (value: number) => {
+    setDraft((current) => {
+      const count = Math.min(Math.max(0, value), Math.max(0, current.partyTotal - 1));
+      const companions = Array.from({ length: count }, (_, index) => current.companions[index] ?? emptyCompanion());
+      return { ...current, partySymptomatic: count, companions };
+    });
+  };
+
+  const patchCompanion = <K extends keyof CompanionDraft>(index: number, key: K, value: CompanionDraft[K]) => {
+    setDraft((current) => ({
+      ...current,
+      companions: current.companions.map((companion, companionIndex) => companionIndex === index ? { ...companion, [key]: value } : companion),
+    }));
   };
 
   const submitReport = async () => {
@@ -147,7 +232,7 @@ export function ReportWizard() {
       }
       const result = await createReport(user.uid, draft);
       if (result.kind === "duplicate") {
-        setDraft(structuredClone(result.report.draft));
+        setDraft(normalizedDraft(structuredClone(result.report.draft)));
         setEditingId(result.report.id);
         setDuplicateNotice(true);
         setConsented(false);
@@ -294,28 +379,35 @@ export function ReportWizard() {
                         restaurantInternalId: candidate.internalId,
                         restaurantDisplayInput: candidate.name,
                         foodCategory: candidate.category as ReportDraft["foodCategory"],
+                        foodCategoryDetail: candidate.category === "기타" ? candidate.categoryLabel : "",
                       }))}
                       role="option"
                       type="button"
                     >
                       <strong>{candidate.name}</strong>
-                      <span>{candidate.address} · {candidate.category}</span>
+                      <span>{candidate.address} · {candidate.categoryLabel || candidate.category}{candidate.phone ? ` · ${candidate.phone}` : ""}</span>
                     </button>
                   ))}
                 </div>
               )}
               {draft.restaurantInternalId && <p className="matched-note">✓ 지도 장소와 내부 연결됨 · 외부에는 공개되지 않아요</p>}
-              {draft.restaurantDisplayInput.length >= 2 && candidates.length === 0 && (
-                <button className="manual-place" onClick={() => patch("restaurantInternalId", `manual_${Date.now()}`)} type="button">검색 결과 없이 직접 입력으로 계속</button>
+              {!draft.restaurantInternalId && activeRestaurantSearch.status === "loading" && <p className="restaurant-search-status">카카오 장소에서 음식점을 검색하는 중입니다.</p>}
+              {!draft.restaurantInternalId && activeRestaurantSearch.status === "error" && <p className="restaurant-search-status error">{activeRestaurantSearch.message}</p>}
+              {!draft.restaurantInternalId && draft.restaurantDisplayInput.trim().length >= 2 && (
+                <button className="manual-place" onClick={() => patch("restaurantInternalId", `manual_${Date.now()}`)} type="button">목록에 없으면 이 상호명으로 직접 입력</button>
               )}
             </div>
 
             <label>음식 유형
-              <select value={draft.foodCategory} onChange={(e) => patch("foodCategory", e.target.value as ReportDraft["foodCategory"])}>
+              <select value={draft.foodCategory} onChange={(e) => {
+                patch("foodCategory", e.target.value as ReportDraft["foodCategory"]);
+                if (e.target.value !== "기타") patch("foodCategoryDetail", "");
+              }}>
                 <option value="">선택해주세요</option>
                 {FOOD_CATEGORIES.map((item) => <option key={item}>{item}</option>)}
               </select>
             </label>
+            {draft.foodCategory === "기타" && <label>음식 유형 직접 입력<input maxLength={50} placeholder="예: 밀키트, 푸드트럭" value={draft.foodCategoryDetail} onChange={(e) => patch("foodCategoryDetail", e.target.value)} /></label>}
             <label>먹은 메뉴<input maxLength={100} placeholder="예: 물냉면, 만두" value={draft.menu} onChange={(e) => patch("menu", e.target.value)} /></label>
             <fieldset className="field-block">
               <legend>이용 방식</legend>
@@ -360,8 +452,16 @@ export function ReportWizard() {
             <h1 id="party-title">같이 드신 분도<br />아팠나요?</h1>
             <p className="step-copy">동행 증상자는 여러 명이어도 독립 신고 1건과 분리해 집계합니다.</p>
             <div className="field-row">
-              <label>나를 포함한 총 인원<input min={1} max={100} type="number" value={draft.partyTotal} onChange={(e) => patch("partyTotal", Math.max(1, Number(e.target.value)))} /></label>
-              <label>나 외 증상자<input min={0} max={Math.max(0, draft.partyTotal - 1)} type="number" value={draft.partySymptomatic} onChange={(e) => patch("partySymptomatic", Math.max(0, Number(e.target.value)))} /></label>
+              <label>나를 포함한 총 인원<input min={1} max={100} type="number" value={draft.partyTotal} onChange={(e) => {
+                const total = Math.min(100, Math.max(1, Number(e.target.value)));
+                setDraft((current) => ({
+                  ...current,
+                  partyTotal: total,
+                  partySymptomatic: Math.min(current.partySymptomatic, total - 1),
+                  companions: current.companions.slice(0, Math.min(current.partySymptomatic, total - 1)),
+                }));
+              }} /></label>
+              <label>나 외 증상자<input min={0} max={Math.max(0, draft.partyTotal - 1)} type="number" value={draft.partySymptomatic} onChange={(e) => setCompanionCount(Number(e.target.value))} /></label>
             </div>
             <div className="party-summary">
               <div><span>독립 신고</span><strong>1건</strong></div>
@@ -369,14 +469,28 @@ export function ReportWizard() {
               <div><span>총 증상자</span><strong>{1 + draft.partySymptomatic}명</strong></div>
             </div>
             {draft.partySymptomatic > 0 && (
-              <>
-                <ToggleGroup label="동행자에게 나타난 증상" options={symptomOptions} values={draft.companionSymptoms} onChange={(value) => patch("companionSymptoms", value)} />
-                <label>동행자 증상 시작시간<input type="datetime-local" value={draft.companionOnsetAt} onChange={(e) => patch("companionOnsetAt", e.target.value)} /></label>
-                <div className="field-row">
-                  <YesNo label="동행자 병원 방문" value={draft.companionMedicalVisit} onChange={(value) => patch("companionMedicalVisit", value)} />
-                  <YesNo label="동행자 검사" value={draft.companionTested} onChange={(value) => patch("companionTested", value)} />
-                </div>
-              </>
+              <div className="companion-list">
+                <div className="companion-list-heading"><strong>동행 증상자별 정보</strong><span>{draft.companions.length}명</span></div>
+                <p className="companion-privacy-note">이름과 생년월일은 받지 않습니다. 나이는 만 나이로 입력하며, 모르는 항목은 비워둘 수 있어요.</p>
+                {draft.companions.map((companion, index) => (
+                  <article className="companion-card" key={index}>
+                    <div className="companion-card-heading"><strong>동행자 {index + 1}</strong><span>증상자</span></div>
+                    <div className="field-row">
+                      <label>나이 (선택)<input inputMode="numeric" max={120} min={0} placeholder="만 나이" type="number" value={companion.age} onChange={(e) => patchCompanion(index, "age", e.target.value === "" ? "" : Number(e.target.value))} /></label>
+                      <label>성별 (선택)<select value={companion.gender} onChange={(e) => patchCompanion(index, "gender", e.target.value as CompanionDraft["gender"])}><option value="">선택하지 않음</option>{COMPANION_GENDERS.map((gender) => <option key={gender} value={gender}>{genderLabels[gender]}</option>)}</select></label>
+                    </div>
+                    <ToggleGroup label={`동행자 ${index + 1} 증상`} options={symptomOptions} values={companion.symptoms} onChange={(value) => patchCompanion(index, "symptoms", value)} />
+                    <label>기타 증상<textarea maxLength={300} placeholder="목록에 없는 증상이 있다면 입력" value={companion.otherSymptom} onChange={(e) => patchCompanion(index, "otherSymptom", e.target.value)} /></label>
+                    <label>증상 시작시간 (선택)<input type="datetime-local" value={companion.onsetAt} onChange={(e) => patchCompanion(index, "onsetAt", e.target.value)} /></label>
+                    <ToggleGroup label="기저질환 (선택)" options={[...UNDERLYING_CONDITIONS]} values={companion.underlyingConditions} onChange={(value) => patchCompanion(index, "underlyingConditions", value as CompanionDraft["underlyingConditions"])} />
+                    {companion.underlyingConditions.includes("기타") && <label>기타 기저질환<input maxLength={100} placeholder="진단명만 간단히 입력" value={companion.otherUnderlyingCondition} onChange={(e) => patchCompanion(index, "otherUnderlyingCondition", e.target.value)} /></label>}
+                    <div className="field-row">
+                      <YesNo label="병원 방문" value={companion.medicalVisit} onChange={(value) => patchCompanion(index, "medicalVisit", value)} />
+                      <YesNo label="검사 여부" value={companion.tested} onChange={(value) => patchCompanion(index, "tested", value)} />
+                    </div>
+                  </article>
+                ))}
+              </div>
             )}
           </section>
         )}
@@ -399,7 +513,7 @@ export function ReportWizard() {
               <div><span>음식점</span><strong>{draft.restaurantDisplayInput || "미입력"}<small>내부에서만 확인</small></strong></div>
               <div><span>증상</span><strong>{draft.symptoms.join(", ") || "미선택"}</strong></div>
               <div><span>잠복시간</span><strong>{incubation ?? "계산 전"}</strong></div>
-              <div><span>인원 집계</span><strong>독립 1건 · 동행 {draft.partySymptomatic}명</strong></div>
+              <div><span>인원 집계</span><strong>독립 1건 · 동행 {draft.partySymptomatic}명<small>개별정보 {draft.companions.length}명 입력</small></strong></div>
             </div>
             <label className="consent-check"><input checked={consented} onChange={(event) => setConsented(event.target.checked)} type="checkbox" /> <span>건강 관련 정보가 민감정보임을 확인했으며, 신고 분석 목적으로 처리하는 데 동의합니다. <small>실제 운영 전 동의문과 보유기간을 법률 검토합니다.</small></span></label>
             <button

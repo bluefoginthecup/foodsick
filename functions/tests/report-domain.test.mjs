@@ -47,6 +47,24 @@ test("rejects diagnosis-like or unsupported symptom fields", () => {
   assert.throws(() => validateReportInput({ ...validInput, symptoms: ["식중독 확정"] }), InputError);
 });
 
+test("accepts separate health details for multiple symptomatic companions", () => {
+  const companions = Array.from({ length: 4 }, (_, index) => ({
+    age: 20 + index,
+    gender: index % 2 ? "male" : "female",
+    symptoms: index === 0 ? ["복통", "구토"] : ["복통"],
+    otherSymptom: index === 0 ? "어지러움" : "",
+    onsetAt: "2026-08-10T19:00",
+    medicalVisit: index === 0,
+    tested: false,
+    underlyingConditions: index === 0 ? ["당뇨병"] : ["없음"],
+    otherUnderlyingCondition: "",
+  }));
+  const report = validateReportInput({ ...validInput, foodCategoryDetail: "", companions });
+  assert.equal(report.companions.length, 4);
+  assert.deepEqual(report.companions[0].symptoms, ["복통", "구토"]);
+  assert.deepEqual(report.companions[0].underlyingConditions, ["당뇨병"]);
+});
+
 test("creates stable private dedupe keys without exposing inputs", () => {
   const secret = "a-secure-test-secret-that-is-longer-than-32-characters";
   const first = createDedupeKey(secret, "uid-1", "restaurant-1", "2026-08-10");

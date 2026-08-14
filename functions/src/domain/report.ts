@@ -1,9 +1,28 @@
 export const FOOD_CATEGORIES = [
-  "냉면", "한식", "회/초밥", "중식", "분식", "카페/디저트", "배달음식", "기타",
+  "냉면", "한식", "회/초밥", "중식", "일식", "양식", "분식", "고기/구이", "해산물/조개",
+  "국/탕/찌개", "면요리", "치킨", "피자", "햄버거/패스트푸드", "동남아/아시아", "인도/중동",
+  "샐러드/건강식", "뷔페", "카페/디저트", "베이커리/떡", "배달음식", "편의점/마트 조리식품",
+  "급식/구내식당", "도시락", "주점/안주", "기타",
 ] as const;
 
 export const SYMPTOMS = ["설사", "구토", "복통", "발열", "오한", "혈변", "두통", "근육통"] as const;
 export const SERVICE_MODES = ["dine_in", "delivery", "takeout"] as const;
+export const COMPANION_GENDERS = ["female", "male", "other", "undisclosed"] as const;
+export const UNDERLYING_CONDITIONS = [
+  "없음", "당뇨병", "심혈관질환/고혈압", "신장질환", "간질환", "호흡기질환", "면역저하", "임신", "암 치료 중", "기타",
+] as const;
+
+export type CompanionInput = {
+  age: number | "";
+  gender: (typeof COMPANION_GENDERS)[number] | "";
+  symptoms: string[];
+  otherSymptom: string;
+  onsetAt: string;
+  medicalVisit: boolean;
+  tested: boolean;
+  underlyingConditions: string[];
+  otherUnderlyingCondition: string;
+};
 
 export type ReportInput = {
   mealDate: string;
@@ -14,6 +33,7 @@ export type ReportInput = {
   restaurantInternalId: string;
   restaurantDisplayInput: string;
   foodCategory: (typeof FOOD_CATEGORIES)[number];
+  foodCategoryDetail: string;
   menu: string;
   serviceMode: (typeof SERVICE_MODES)[number];
   symptoms: string[];
@@ -23,6 +43,7 @@ export type ReportInput = {
   onsetTime: string;
   partyTotal: number;
   partySymptomatic: number;
+  companions: CompanionInput[];
   companionSymptoms: string[];
   companionOnsetAt: string;
   companionMedicalVisit: boolean;
@@ -91,6 +112,38 @@ function stringList(record: Record<string, unknown>, field: string, allowed: rea
   return unique as string[];
 }
 
+function companionList(value: unknown, expectedCount: number): CompanionInput[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length !== expectedCount || value.length > 99) {
+    throw new InputError("companions", "동행 증상자 정보를 확인해주세요.");
+  }
+  return value.map((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new InputError(`companions.${index}`, "동행자 정보가 올바르지 않습니다.");
+    }
+    const companion = item as Record<string, unknown>;
+    const ageValue = companion.age;
+    const age = ageValue === "" || ageValue === undefined
+      ? ""
+      : boundedInteger(companion, "age", 0, 120);
+    const gender = optionalString(companion, "gender", 20);
+    if (gender && !COMPANION_GENDERS.includes(gender as (typeof COMPANION_GENDERS)[number])) {
+      throw new InputError(`companions.${index}.gender`, "동행자 성별을 확인해주세요.");
+    }
+    return {
+      age,
+      gender: gender as CompanionInput["gender"],
+      symptoms: stringList(companion, "symptoms", SYMPTOMS, false),
+      otherSymptom: optionalString(companion, "otherSymptom", 300),
+      onsetAt: optionalString(companion, "onsetAt", 30),
+      medicalVisit: booleanValue(companion, "medicalVisit"),
+      tested: booleanValue(companion, "tested"),
+      underlyingConditions: stringList(companion, "underlyingConditions", UNDERLYING_CONDITIONS, false),
+      otherUnderlyingCondition: optionalString(companion, "otherUnderlyingCondition", 100),
+    };
+  });
+}
+
 function parseKoreanDateTime(date: string, time: string, field: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) throw new InputError(field, `${field} 형식이 올바르지 않습니다.`);
   const value = new Date(`${date}T${time}:00+09:00`);
@@ -127,6 +180,7 @@ export function validateReportInput(input: unknown): ValidatedReport {
     restaurantInternalId: requiredString(record, "restaurantInternalId", 128),
     restaurantDisplayInput: requiredString(record, "restaurantDisplayInput", 120),
     foodCategory: foodCategory as ReportInput["foodCategory"],
+    foodCategoryDetail: optionalString(record, "foodCategoryDetail", 50),
     menu: optionalString(record, "menu", 100),
     serviceMode: serviceMode as ReportInput["serviceMode"],
     symptoms: stringList(record, "symptoms", SYMPTOMS, true),
@@ -136,6 +190,7 @@ export function validateReportInput(input: unknown): ValidatedReport {
     onsetTime,
     partyTotal,
     partySymptomatic,
+    companions: companionList(record.companions, partySymptomatic),
     companionSymptoms: stringList(record, "companionSymptoms", SYMPTOMS, false),
     companionOnsetAt: optionalString(record, "companionOnsetAt", 30),
     companionMedicalVisit: booleanValue(record, "companionMedicalVisit"),

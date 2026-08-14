@@ -19,6 +19,7 @@ function reportDocument(ownerUid: string, report: ReturnType<typeof validateRepo
     timezone: "Asia/Seoul",
     region: { province: report.province, city: report.city, district: report.district },
     foodCategory: report.foodCategory,
+    foodCategoryDetail: report.foodCategoryDetail || null,
     menu: report.menu,
     serviceMode: report.serviceMode,
     symptoms: report.symptoms,
@@ -38,6 +39,7 @@ function reportDocument(ownerUid: string, report: ReturnType<typeof validateRepo
     },
     partyTotal: report.partyTotal,
     partySymptomatic: report.partySymptomatic,
+    companions: report.companions,
     sensitiveDataConsentVersion: report.sensitiveDataConsentVersion,
     draft: {
       mealDate: report.mealDate,
@@ -48,6 +50,7 @@ function reportDocument(ownerUid: string, report: ReturnType<typeof validateRepo
       restaurantInternalId: report.restaurantInternalId,
       restaurantDisplayInput: report.restaurantDisplayInput,
       foodCategory: report.foodCategory,
+      foodCategoryDetail: report.foodCategoryDetail,
       menu: report.menu,
       serviceMode: report.serviceMode,
       symptoms: report.symptoms,
@@ -57,6 +60,7 @@ function reportDocument(ownerUid: string, report: ReturnType<typeof validateRepo
       onsetTime: report.onsetTime,
       partyTotal: report.partyTotal,
       partySymptomatic: report.partySymptomatic,
+      companions: report.companions,
       companionSymptoms: report.companionSymptoms,
       companionOnsetAt: report.companionOnsetAt,
       companionMedicalVisit: report.companionMedicalVisit,
@@ -67,7 +71,7 @@ function reportDocument(ownerUid: string, report: ReturnType<typeof validateRepo
       pathogenKnown: report.pathogenKnown,
       pathogenType: report.pathogenType,
     },
-    schemaVersion: 1,
+    schemaVersion: 2,
     updatedAt,
   };
 }

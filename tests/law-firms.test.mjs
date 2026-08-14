@@ -36,6 +36,16 @@ test("requires anonymized region, month and victim band when no case number is p
   assert.equal(result.experience.eventRegion, "경기도 용인시");
 });
 
+test("accepts many lawyers and separately verifiable case records", () => {
+  const lawyers = Array.from({ length: 10 }, (_, index) => ({ name: `변호사 ${index + 1}`, barRegistrationNumber: `BAR-${index + 1}` }));
+  const experiences = Array.from({ length: 10 }, (_, index) => ({ evidenceType: "case_number", courtName: "서울중앙지방법원", caseNumber: `2024가단${10000 + index}`, precedentUrl: "", eventRegion: "", eventMonth: "", victimCountBand: "", caseCount: 1 }));
+  const result = validateLawFirmApplication({ ...base, lawyers, experiences });
+  assert.equal(result.lawyers.length, 10);
+  assert.equal(result.experiences.length, 10);
+  assert.equal(result.experience.caseCount, 10);
+  assert.equal(result.representativeLawyer, "변호사 1");
+});
+
 test("admin review fails closed unless an authenticated email is explicitly configured", () => {
   const previous = process.env.ADMIN_EMAILS;
   const request = new Request("https://example.com/api/law-firms/admin", {

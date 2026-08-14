@@ -68,7 +68,7 @@ export default function LawHelpPage() {
           <article className="law-firm-card" key={firm.id}>
             <div className="verified-line"><span>수임경력 확인됨</span><small>{new Date(firm.verifiedAt).toLocaleDateString("ko-KR")} 확인</small></div>
             <h3>{firm.firmName}{firm.branchName && <small>{firm.branchName}</small>}</h3>
-            <p>{firm.representativeLawyer} 변호사 · {firm.region}</p>
+            <p>{firm.representativeLawyer} 변호사{firm.lawyerCount > 1 ? ` 외 ${firm.lawyerCount - 1}명` : ""} · {firm.region}</p>
             <dl><div><dt>식중독 관련 사건</dt><dd>{firm.experience.caseCount}건</dd></div><div><dt>증빙</dt><dd>{firm.experience.publicCaseReference}</dd></div>{firm.experience.eventRegion && <div><dt>사건 지역</dt><dd>{firm.experience.eventRegion}</dd></div>}</dl>
             <div className="firm-actions"><a href={`tel:${firm.phone.replace(/[^\d+]/g, "")}`}>전화 {firm.phone}</a><a href={firm.website} rel="noreferrer" target="_blank">홈페이지 ↗</a></div>
           </article>

@@ -9,27 +9,39 @@ export type ExperienceInput = {
   caseCount: number;
 };
 
+export type LawyerInput = {
+  name: string;
+  barRegistrationNumber: string;
+};
+
 export type LawFirmApplicationInput = {
   firmName: string;
   branchName: string;
-  representativeLawyer: string;
-  barRegistrationNumber: string;
   phone: string;
   website: string;
   address: string;
   region: string;
   consultationModes: string[];
   introduction: string;
+  lawyers: LawyerInput[];
+  experiences: ExperienceInput[];
+};
+
+export type ValidatedLawFirmApplication = LawFirmApplicationInput & {
+  representativeLawyer: string;
+  barRegistrationNumber: string;
   experience: ExperienceInput;
 };
 
-export type PublicLawFirm = Omit<LawFirmApplicationInput, "barRegistrationNumber" | "experience"> & {
+export type PublicLawFirm = Omit<LawFirmApplicationInput, "lawyers" | "experiences"> & {
   id: string;
+  representativeLawyer: string;
+  lawyerCount: number;
   verifiedAt: string;
   experience: Omit<ExperienceInput, "caseNumber" | "courtName"> & { publicCaseReference: string };
 };
 
-export type AdminLawFirmApplication = LawFirmApplicationInput & {
+export type AdminLawFirmApplication = ValidatedLawFirmApplication & {
   id: string;
   ownerEmail: string;
   status: "pending" | "verified" | "rejected";

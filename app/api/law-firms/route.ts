@@ -13,11 +13,13 @@ export async function GET() {
     const firms = snapshot.docs.map((doc) => {
       const application = doc.data();
       const experience = application.experience as Record<string, unknown>;
+      const lawyers = Array.isArray(application.lawyers) ? application.lawyers as Array<Record<string, unknown>> : [];
       return {
         id: doc.id,
         firmName: application.firmName,
         branchName: application.branchName,
         representativeLawyer: application.representativeLawyer,
+        lawyerCount: lawyers.length || 1,
         phone: application.phone,
         website: application.website,
         address: application.address,

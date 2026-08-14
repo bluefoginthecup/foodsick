@@ -21,7 +21,7 @@ const demoReports = [
 ] as const;
 
 export default function AdminPage() {
-  const { user, loading, firebaseMode } = useAuth();
+  const { user, loading, firebaseMode, logout } = useAuth();
   const { reports, auditEvents, setReportStatus } = useReports();
   const { feedback } = useContactFeedback();
   const [activeTab, setActiveTab] = useState<"reports" | "clusters" | "contacts" | "law_firms" | "audit">("reports");
@@ -36,7 +36,13 @@ export default function AdminPage() {
         <span aria-hidden="true">403</span>
         <h1>관리자 권한이 필요합니다</h1>
         <p>화면의 버튼이 아니라 서버의 Firebase custom claim으로 권한을 확인해야 합니다.</p>
-        <NativeLink className="primary-button" href="/login">{firebaseMode ? "카카오 로그인으로 이동" : "체험 로그인으로 이동"}</NativeLink>
+        {user && firebaseMode ? <div className="admin-access-guide">
+          <strong>현재 카카오 계정 UID</strong>
+          <code>{user.uid}</code>
+          <ol><li>Firebase Firestore의 <b>users / 현재 UID</b> 문서를 엽니다.</li><li><b>role</b> 필드를 문자열 <b>admin</b>으로 변경합니다.</li><li>아래에서 로그아웃한 뒤 카카오로 다시 로그인합니다.</li></ol>
+          <a href={`https://console.firebase.google.com/project/foodsick-signal-map-kr/firestore/databases/-default-/data/~2Fusers~2F${user.uid}`} rel="noreferrer" target="_blank">Firebase에서 내 권한 문서 열기 ↗</a>
+          <button className="primary-button" onClick={() => void logout().then(() => window.location.assign("/login"))} type="button">권한 반영을 위해 로그아웃</button>
+        </div> : <NativeLink className="primary-button" href="/login">{firebaseMode ? "카카오 로그인으로 이동" : "체험 로그인으로 이동"}</NativeLink>}
         <NativeLink className="text-link" href="/">공개 지도로 돌아가기</NativeLink>
       </main>
     );
