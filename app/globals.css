@@ -844,3 +844,51 @@ button { color: inherit; }
 .member-activity { margin-top: 32px; }
 .member-activity article { border-bottom: 1px solid #ddd; padding: 16px 0; overflow-wrap: anywhere; }
 .member-activity time { display: block; font-size: 13px; color: #65706b; margin-top: 6px; }
+
+.test-session-banner { padding: 10px 16px; background: #fff0bd; color: #493900; text-align: center; font-weight: 700; }
+.test-members-panel { padding: 24px; background: white; border: 1px solid #ddd9cf; border-radius: 18px; }
+.test-members-panel p { line-height: 1.7; }
+.test-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 18px 0; }
+.test-controls input { width: 90px; }
+.test-controls input, .test-controls select, .test-members-panel button { padding: 10px 14px; border-radius: 9px; border: 1px solid #ccc; }
+.test-members-panel button:disabled { opacity: .5; cursor: not-allowed; }
+.test-member-list, .test-results { max-height: 420px; overflow: auto; padding: 0; list-style: none; }
+.test-member-list li { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; }
+.test-confirm { background: #fff0df; padding: 16px; border-radius: 10px; }
+.test-confirm button { margin-right: 8px; }
+
+/* Language controls remain reachable on every mobile route. */
+.language-select { display: flex; align-items: center; gap: 5px; margin-left: auto; min-width: 0; color: var(--forest-dark); }
+.language-select select { min-height: 44px; max-width: 135px; padding: 7px 4px; border: 1px solid var(--line); border-radius: 10px; background: white; font-size: 14px; cursor: pointer; }
+.language-select select:focus-visible { outline: 3px solid var(--forest); outline-offset: 2px; }
+@media (max-width: 360px) {
+  body { min-width: 0; }
+  .language-select > span[aria-hidden="true"] { display: none; }
+}
+html:not([lang="ko"]) .hero h1 { letter-spacing: -.035em; line-height: 1.12; }
+html:not([lang="ko"]) :is(.hero-copy, .step-copy, .login-copy, .trust-panel h2, .legal-hero > p, .regional-help-heading > span) { word-break: normal; overflow-wrap: anywhere; }
+html:not([lang="ko"]) :is(.live-status, .trend-badge, .emergency-callout a, .contact-api-status button, .repeat-section-heading > button) { white-space: normal; }
+html:not([lang="ko"]) :is(button, .primary-button, .secondary-button, .site-menu-groups a) { overflow-wrap: anywhere; }
+html:not([lang="ko"]) :is(.field-row, .service-mode, .step-navigation, .signal-card-heading) > * { min-width: 0; }
+@media (max-width: 600px) {
+  .site-nav-bar { gap: 8px; padding-inline: 12px; }
+  .site-navigation .brand { gap: 6px; font-size: 14px; }
+  .site-menu summary { width: 44px; min-height: 44px; padding: 12px; }
+  .site-menu summary > span { display: none; }
+  .language-select { gap: 2px; }
+  .language-select select { max-width: 116px; }
+  html:not([lang="ko"]) .site-menu-heading { align-items: start; flex-direction: column; }
+  html:not([lang="ko"]) .site-menu-heading small { text-align: left; }
+  html:not([lang="ko"]) .signal-card-heading { flex-wrap: wrap; }
+  html:not([lang="ko"]) .form-steps { flex-wrap: wrap; }
+}
+
+/* Labels render after every boundary, with collision-free placement. */
+.admin-boundary-map { overflow: auto; }
+.admin-boundary-map svg { min-width: 640px; }
+.admin-boundary-map .map-label-layer text,
+.admin-boundary-map svg.dense .map-label-layer text { font-size: 11px; stroke: none; }
+.admin-boundary-map .map-label-layer g:focus rect,
+.admin-boundary-map .map-label-layer g:hover rect { stroke: #1d5946; stroke-width: 2; }
+.signal-menu-types { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0 4px; } .signal-menu-types strong { font-size: 14px; color: var(--ink); margin-right: 2px; } .signal-menu-types span { display: inline-block; background: #e6f2eb; color: #205543; border: 1px solid #bed6c7; border-radius: 999px; padding: 6px 13px; font-size: 16px; font-weight: 700; line-height: 1.4; }
+.signal-health-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } .signal-health-stats .signal-count-note { display: block; font-size: 12px; line-height: 1.5; margin-top: 4px; white-space: normal; }

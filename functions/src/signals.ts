@@ -18,7 +18,7 @@ export const getPublicSignals = onCall({ region: "asia-northeast3", enforceAppCh
   const last = docs.at(-1);
   const until = last?.get("validUntil") as Timestamp | undefined;
   return {
-    signals: docs.flatMap((doc) => { const signal = publicSignalView(doc.data()); return signal ? [signal] : []; }),
+    signals: docs.flatMap((doc) => { const signal = doc.get("schemaVersion") === 3 ? publicSignalView(doc.data()) : null; return signal ? [signal] : []; }),
     nextCursor: snapshot.size > 200 && last && until ? { id: last.id, seconds: until.seconds, nanoseconds: until.nanoseconds } : null,
   };
 });

@@ -18,15 +18,25 @@ export const withdrawMyAccount = onCall({ region: "asia-northeast3", enforceAppC
 });
 
 export async function eraseAccount(uid: string) {
+  const user = await db.collection("users").doc(uid).get();
   // The account is already locked. Retries can safely resume after any batch.
   try { await getAuth().updateUser(uid, { disabled: true }); await getAuth().revokeRefreshTokens(uid); }
   catch (error) { if ((error as { code?: string }).code !== "auth/user-not-found") throw error; }
-  for (const [collection, field] of [["reports", "ownerUid"], ["companionObservations", "ownerUid"], ["dedupeKeys", "ownerUid"], ["rateLimits", "uid"], ["kakaoAuthExchanges", "uid"], ["memberActivities", "ownerUid"]] as const) {
+  for (const [collection, field] of [["reports", "ownerUid"], ["cdcReports", "ownerUid"], ["resourcePosts", "ownerUid"], ["companionObservations", "ownerUid"], ["dedupeKeys", "ownerUid"], ["rateLimits", "uid"], ["kakaoAuthExchanges", "uid"], ["memberActivities", "ownerUid"]] as const) {
     while (true) {
       const page = await db.collection(collection).where(field, "==", uid).limit(400).get();
       if (!page.size) break;
       const batch = db.batch();
       page.docs.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
+  }
+  if (user.get("isTest") === true) {
+    while (true) {
+      const logs = await db.collection("adminAuditLogs").where("ownerUid", "==", uid).limit(400).get();
+      if (!logs.size) break;
+      const batch = db.batch();
+      logs.docs.forEach(doc => batch.delete(doc.ref));
       await batch.commit();
     }
   }

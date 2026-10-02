@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { defaultFilters, facts, filterReports, koreaDate, summarize } from '../app/admin/analytics-model.ts';
+import { buildAnalyticsWorkbook } from '../app/admin/analytics-export.ts';
+import { testScenario } from '../app/admin/test-scenarios.ts';
+const base = { source:'symptom', memberType:'real', status:'submitted', createdAt:'2026-10-01T16:30:00Z', updatedAt:'2026-10-02T01:00:00Z', incubationMinutes:360, sensitiveDataConsentVersion:'consent-v1', reviewNote:'', revision:0, formVersion:'' };
+const symptom = (id,ownerUid,extra={}) => ({ ...base, id, ownerUid, draft:testScenario('test','2026-10-01',71), ...extra });
+const cdc = { ...base, id:'cdc1',ownerUid:'alice',source:'cdc',draft:{ symptoms:['복통'],basic:{partySick:'3',medical:'unknown',hospitalized:'no',place:'=HYPERLINK("evil")'},detail:{notes:'<script>literal</script>'},meals:[{foods:'raw meal',preparation:'raw'}],consent:true} };
+test('includes all member types by default; distinct owners and companions remain separate', () => {
+  const all = [symptom('a','alice'),symptom('b','alice'),symptom('c','bob',{memberType:'test'}),symptom('d','missing',{memberType:'unknown'}),cdc];
+  const filtered = filterReports(all,defaultFilters);
+  assert.equal(filtered.length,4);
+  const summary = summarize(filtered,'created');
+  assert.equal(summary.owners,3); assert.equal(summary.companions,4); assert.equal(summary.count,4);
+  assert.equal(filterReports(all,{...defaultFilters,memberType:'test'}).length,1);
+  assert.equal(filterReports(all,{...defaultFilters,source:'all',memberType:'all'}).length,5);
+});
+test('Korean date boundary, unknown CDC meal dates and drilldown are exact', () => {
+  assert.equal(koreaDate(base.createdAt),'2026-10-02');
+  assert.equal(filterReports([symptom('a','alice')],{...defaultFilters,start:'2026-10-02',end:'2026-10-02'}).length,1);
+  assert.equal(filterReports([cdc],{...defaultFilters,source:'cdc',dateBasis:'meal',start:'2026-10-01'}).length,0);
+  assert.equal(facts(cdc).companions,2);
+  assert.equal(summarize([cdc],'created').medical,0);
+  assert.deepEqual(summarize([cdc],'created').medicalAnswers.map(x=>x.key),['unknown']);
+  assert.equal(filterReports([cdc],{...defaultFilters,source:'cdc',detailGroup:'medical',detailKey:'yes'}).length,0);
+});
+test('xlsx roundtrip preserves all five sheets, nested data, unknown answers and literal formula-like text', async () => {
+  const reports = [symptom('a','alice'),cdc];
+  const workbook = await buildAnalyticsWorkbook(reports,{...defaultFilters,source:'all'},base.updatedAt,'audit-1');
+  const bytes = await workbook.xlsx.writeBuffer();
+  const ExcelJS = await import('exceljs');
+  const restored = new ExcelJS.default.Workbook(); await restored.xlsx.load(bytes);
+  assert.deepEqual(restored.worksheets.map(s=>s.name),['요약 통계','증상 신고','동행자','CDC 신고','CDC 식사 기록']);
+  assert.equal(restored.getWorksheet('동행자').rowCount,2);
+  assert.equal(restored.getWorksheet('CDC 식사 기록').rowCount,2);
+  const cells = [];
+  restored.getWorksheet('CDC 신고').eachRow(row=>row.eachCell(c=>cells.push(c)));
+  const formulaLike = cells.find(c=>c.value==='=HYPERLINK("evil")');
+  assert.ok(formulaLike); assert.equal(formulaLike.formula,undefined);
+  assert.ok(cells.some(c=>c.value==='모름')); assert.ok(cells.some(c=>c.value==='미응답')); assert.ok(cells.some(c=>c.value==='아니요'));
+  assert.equal(restored.getWorksheet('CDC 신고').views[0].state,'frozen');
+});

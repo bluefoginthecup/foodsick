@@ -1,0 +1,15 @@
+.food-guide { max-width: 1040px; }
+.food-guide .hero h1 { font-size: clamp(2.1rem, 5.5vw, 3.8rem); word-break: keep-all; max-width: 24ch; }
+.food-guide p, .food-guide dd { line-height: 1.85; word-break: keep-all; }
+.food-guide .guide-note, .food-guide .guide-source { font-size: .9rem; color: #596c65; }
+.food-guide .guide-toc { display: flex; flex-wrap: wrap; gap: .8rem 1.3rem; padding: 1.2rem; background: #e8eee8; border-radius: 16px; }
+.food-guide section { padding: 2.3rem 0; border-bottom: 1px solid #dce2da; scroll-margin-top: 100px; }
+.food-guide h2 { font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: 1.1rem; word-break: keep-all; }
+.food-guide h3 { margin: 1.6rem 0 .6rem; font-size: 1.15rem; }
+.food-guide dt { font-weight: 700; margin-top: 1rem; }
+.food-guide dd { margin: .3rem 0 0; }
+.food-guide a { text-decoration: underline; text-underline-offset: .22em; }
+.food-guide .guide-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem; }
+.food-guide .guide-options article { border: 1px solid #dce2da; border-radius: 18px; padding: 1.3rem; }
+.food-guide .guide-options h3 { margin-top: 0; }
+@media (max-width: 640px) { .food-guide .guide-options { grid-template-columns: 1fr; } }

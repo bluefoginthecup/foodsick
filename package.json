@@ -19,6 +19,7 @@
   "dependencies": {
     "admdongkor": "^0.5.1",
     "drizzle-orm": "^0.45.2",
+    "exceljs": "^4.4.0",
     "firebase": "^12.17.1",
     "firebase-admin": "^13.4.0",
     "react": "19.2.6",

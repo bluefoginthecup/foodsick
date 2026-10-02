@@ -92,6 +92,7 @@ export type ReportDraft = {
   foodCategory: FoodCategory | "";
   foodCategoryDetail: string;
   menu: string;
+  publicMenus?: string[];
   serviceMode: "dine_in" | "delivery" | "takeout" | "";
   symptoms: string[];
   diarrheaCount: number;

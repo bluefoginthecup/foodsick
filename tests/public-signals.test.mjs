@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { parsePublicSignals, signalDateRange, sumSignalDetails } from "../app/public-signals.ts";
+import { parsePublicSignals, signalDateRange, sumSignalDetails, summarizeSignalDetail } from "../app/public-signals.ts";
+
+test('regional health totals preserve known values without treating small or unknown groups as zero', () => {
+  assert.deepEqual(summarizeSignalDetail([{outpatientVisits:0}], 'outpatientVisits'), {known:0,smallGroups:0,unknown:false});
+  assert.deepEqual(summarizeSignalDetail([{outpatientVisits:5},{outpatientVisits:null,smallDetails:['outpatientVisits']},{outpatientVisits:null}], 'outpatientVisits'), {known:5,smallGroups:1,unknown:true});
+});
 
 test("public signal adapter preserves suppression and rejects partial or old-format responses", () => {
   const signal = { id: "x", region: "경기도 용인시 기흥구", sido: "경기도", city: "용인시", district: "기흥구", dong: "",

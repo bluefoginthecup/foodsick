@@ -22,6 +22,8 @@ function reportDocument(ownerUid: string, report: ReturnType<typeof validateRepo
     foodCategory: report.foodCategory,
     foodCategoryDetail: report.foodCategoryDetail || null,
     menu: report.menu,
+    publicMenus: report.publicMenus ?? [],
+    menuReview: null,
     serviceMode: report.serviceMode,
     symptoms: report.symptoms,
     diarrheaCount: report.diarrheaCount,
@@ -53,6 +55,7 @@ function reportDocument(ownerUid: string, report: ReturnType<typeof validateRepo
       foodCategory: report.foodCategory,
       foodCategoryDetail: report.foodCategoryDetail,
       menu: report.menu,
+      publicMenus: report.publicMenus ?? [],
       serviceMode: report.serviceMode,
       symptoms: report.symptoms,
       diarrheaCount: report.diarrheaCount,
@@ -276,7 +279,7 @@ export const setReportStatus = onCall({ region: "asia-northeast3", enforceAppChe
     if (!snapshot.exists) throw new HttpsError("not-found", "신고를 찾을 수 없습니다.");
     recordActivity(transaction, String(snapshot.get("ownerUid")), `report_${status}`, reportId, actorUid);
     transaction.update(reportRef, { status, updatedAt: FieldValue.serverTimestamp() });
-    transaction.create(auditRef, { actorUid, action: "report_status_changed", reportId, before: snapshot.get("status"), after: status, note, createdAt: FieldValue.serverTimestamp() });
+    transaction.create(auditRef, { actorUid, ownerUid: snapshot.get("ownerUid"), action: "report_status_changed", reportId, before: snapshot.get("status"), after: status, note, createdAt: FieldValue.serverTimestamp() });
   });
   return { ok: true };
 });

@@ -1,0 +1,25 @@
+.about-page .hero h1 {
+  max-width: 22ch;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  word-break: keep-all;
+}
+
+.about-page .trust-panel h3 {
+  margin-top: 1.8rem;
+  margin-bottom: .55rem;
+  font-size: 1.15rem;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+
+.about-page .trust-panel p {
+  max-width: 70ch;
+  line-height: 1.85;
+  word-break: keep-all;
+}
+
+.about-page .trust-panel a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: .2em;
+}

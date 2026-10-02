@@ -1,4 +1,4 @@
-const SHELL_CACHE = "nadoapa-shell-v2";
+const SHELL_CACHE = "nadoapa-shell-v3-i18n";
 const SHELL_ASSETS = ["/", "/manifest.webmanifest", "/og-nadoapa.png"];
 
 self.addEventListener("install", (event) => {

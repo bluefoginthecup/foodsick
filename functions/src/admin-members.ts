@@ -18,7 +18,7 @@ export const getAdminMembers = onCall({ region: "asia-northeast3", enforceAppChe
     const data = doc.data();
     const reportCount = await db.collection("reports").where("ownerUid", "==", doc.id).count().get();
     return {
-      uid: doc.id, provider: data.provider === "kakao" ? "카카오" : "기록 없음", role: data.role === "admin" ? "admin" : "user",
+      uid: doc.id, provider: data.provider === "test" ? "테스트" : data.provider === "kakao" ? "카카오" : "기록 없음", role: data.role === "admin" ? "admin" : "user",
       createdAt: data.createdAt?.toDate?.().toISOString() ?? "", lastLoginAt: data.lastLoginAt?.toDate?.().toISOString() ?? "",
       reportCount: reportCount.data().count,
       nickname: typeof data.nickname === "string" ? data.nickname : "",

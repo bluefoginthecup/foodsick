@@ -16,7 +16,7 @@ env:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_SITE_URL
-    value: https://apayo--foodsick-signal-map-kr.asia-east1.hosted.app
+    value: https://nadooapa.kr
     availability:
       - BUILD
       - RUNTIME

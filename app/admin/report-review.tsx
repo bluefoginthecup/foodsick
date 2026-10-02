@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "../i18n/context";
+
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/auth-context";
@@ -8,6 +10,7 @@ import { ReportDetails } from "./report-details";
 
 const statuses: Record<string, string> = { submitted: "접수됨", reviewed: "검토 완료", duplicate_suspected: "중복 의심", included_in_cluster: "집계 포함", rejected: "집계 제외" };
 export function ReportReviewPanel({ ownerUid }: { ownerUid?: string }) {
+  const { t, text } = useI18n();
   const { user, firebaseMode } = useAuth();
   const { reports: demoReports, setReportStatus } = useReports();
   const [reports, setReports] = useState<AdminReport[]>([]);
@@ -50,20 +53,20 @@ export function ReportReviewPanel({ ownerUid }: { ownerUid?: string }) {
     finally { setBusy(null); }
   };
   const items = firebaseMode ? reports : demoReports.filter((report) => !ownerUid || report.ownerUid === ownerUid);
-  return <section className="admin-list" aria-label="전체 신고 검토">
-    <div className="admin-review-toolbar"><p>{items.length}건 불러옴{cursor ? " · 다음 신고 있음" : ""}</p>{firebaseMode && <button type="button" disabled={loading || !!busy} onClick={() => { setLoading(true); setError(""); setRefresh((n) => n + 1); }}>새로고침</button>}</div>
-    {error && <p className="form-error" role="alert">{error}</p>}
-    {notice && <p role="status">{notice}</p>}
-    {firebaseMode && loading && <p role="status">신고를 불러오는 중입니다.</p>}
-    {(!firebaseMode || !loading) && !error && items.length === 0 && <p>접수된 신고가 없습니다.</p>}
-    {items.map((report) => <article className="admin-report-card full-report" key={report.id}>
+  return <section className="admin-list" aria-label={t("전체 신고 검토")}>
+    <div className="admin-review-toolbar"><p>{text(items.length)}{t("건 불러옴")}{text(cursor ? " · 다음 신고 있음" : "")}</p>{text(firebaseMode && <button type="button" disabled={loading || !!busy} onClick={() => { setLoading(true); setError(""); setRefresh((n) => n + 1); }}>{t("새로고침")}</button>)}</div>
+    {text(error && <p className="form-error" role="alert">{text(error)}</p>)}
+    {text(notice && <p role="status">{text(notice)}</p>)}
+    {text(firebaseMode && loading && <p role="status">{t("신고를 불러오는 중입니다.")}</p>)}
+    {text((!firebaseMode || !loading) && !error && items.length === 0 && <p>{t("접수된 신고가 없습니다.")}</p>)}
+    {text(items.map((report) => <article className="admin-report-card full-report" key={report.id}>
       <details>
-        <summary><span className={`report-status ${report.status}`}>{statuses[report.status] ?? report.status}</span><strong>{report.draft?.restaurantDisplayInput || "상호명 기록 없음"}</strong><span>{[report.draft?.province, report.draft?.city, report.draft?.district].filter(Boolean).join(" ")}</span><b>작성 내용 전체 보기</b></summary>
+        <summary><span className={`report-status ${report.status}`}>{text(statuses[report.status] ?? report.status)}</span><strong>{report.draft?.restaurantDisplayInput || t("상호명 기록 없음")}</strong><span>{text([report.draft?.province, report.draft?.city, report.draft?.district].filter(Boolean).join(" "))}</span><b>{t("작성 내용 전체 보기")}</b></summary>
         <ReportDetails report={report} />
-        <label className="review-note">검토 메모<textarea maxLength={300} value={notes[report.id] ?? ""} onChange={(event) => setNotes((previous) => ({ ...previous, [report.id]: event.target.value }))} placeholder="검토 내용 또는 집계 제외 사유" /></label>
-        <div className="admin-actions"><button disabled={!!busy || report.status === "reviewed"} type="button" onClick={() => void review(report, "reviewed")}>{busy === report.id ? "저장 중…" : "검토 완료"}</button><button disabled={!!busy || report.status === "rejected"} className="reject" type="button" onClick={() => void review(report, "rejected")}>집계 제외</button></div>
+        <label className="review-note">{t("검토 메모")}<textarea maxLength={300} value={notes[report.id] ?? ""} onChange={(event) => setNotes((previous) => ({ ...previous, [report.id]: event.target.value }))} placeholder={t("검토 내용 또는 집계 제외 사유")} /></label>
+        <div className="admin-actions"><button disabled={!!busy || report.status === "reviewed"} type="button" onClick={() => void review(report, "reviewed")}>{text(busy === report.id ? "저장 중…" : "검토 완료")}</button><button disabled={!!busy || report.status === "rejected"} className="reject" type="button" onClick={() => void review(report, "rejected")}>{t("집계 제외")}</button></div>
       </details>
-    </article>)}
-    {cursor && <button className="secondary-button" type="button" disabled={loading} onClick={() => void more()}>다음 신고 더 보기</button>}
+    </article>))}
+    {text(cursor && <button className="secondary-button" type="button" disabled={loading} onClick={() => void more()}>{t("다음 신고 더 보기")}</button>)}
   </section>;
 }

@@ -35,8 +35,29 @@ after(() => {
 });
 
 async function render(pathname = "/") {
-  return fetch(`${baseUrl}${pathname}`, { headers: { accept: "text/html" } });
+  return fetch(`${baseUrl}${pathname}`, { headers: { accept: "text/html", "accept-language": "ko-KR" } });
 }
+
+test("renders all requested languages on the server and honors an explicit language cookie", async () => {
+  const languages = [
+    ["ko-KR", "ko", "나만 아픈 걸까?"],
+    ["en-GB", "en", "Am I the only one feeling sick?"],
+    ["zh-CN", "zh-Hans", "只有我不舒服吗？"],
+    ["ja-JP", "ja", "具合が悪いのは私だけ？"],
+    ["vi-VN", "vi", "Chỉ mình tôi thấy không khỏe sao?"],
+  ];
+  for (const [preferred, htmlLanguage, title] of languages) {
+    const response = await fetch(baseUrl, { headers: { 'accept-language': preferred } });
+    const html = await response.text();
+    assert.equal(response.status, 200);
+    assert.ok(html.includes(`<html lang="${htmlLanguage}"`), preferred);
+    assert.ok(html.includes(title), preferred);
+  }
+  const response = await fetch(`${baseUrl}/report`, { headers: { 'accept-language': 'ko-KR', cookie: 'nadoapa_language=vi' } });
+  const html = await response.text();
+  assert.match(html, /<html lang="vi"/);
+  assert.ok(html.includes('Tiếng Việt'));
+});
 
 test("keeps Firebase-backed API failures as JSON", async () => {
   const endpoints = [
@@ -93,6 +114,17 @@ test("renders Kakao login without requesting profile data", async () => {
   assert.match(html, /카카오로 시작하기/);
   assert.match(html, /프로필 이름·이메일을 요청하지 않아요/);
   assert.match(html, /체험 모드/);
+});
+
+test("renders the moderated resource board without exposing starter drafts publicly", async () => {
+  const response = await render("/resources");
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /회원의 글은 관리자 승인 후 공개됩니다/);
+  assert.match(html, /로그인하고 글쓰기/);
+  assert.match(html, /논문·연구/);
+  assert.match(html, /통계·데이터/);
+  assert.doesNotMatch(html, /A Platform for Crowdsourced Foodborne Illness Surveillance/);
 });
 
 test("renders the legal response, precedent, and verified law-firm directory", async () => {

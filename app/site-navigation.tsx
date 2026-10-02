@@ -1,8 +1,11 @@
 "use client";
+import { LanguageSelect, useI18n } from "./i18n/context";
+
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { SessionControl } from "./auth/session-control";
+import { useAuth } from "./auth/auth-context";
 import { NativeLink } from "./native-link";
 
 const menuGroups = [
@@ -13,6 +16,7 @@ const menuGroups = [
       { href: "/", label: "홈" },
       { href: "/#signals", label: "증상 신호 지도" },
       { href: "/report", label: "증상 신고하기" },
+      { href: "/cdc-report", label: "CDC 신고 · 시험 운영" },
       { href: "/my-reports", label: "내 신고" },
       { href: "/account", label: "내 계정·정보 수정" },
     ],
@@ -36,6 +40,11 @@ const menuGroups = [
     ],
   },
   {
+    label: "자료실",
+    description: "논문과 공식 자료를 유형별로 살펴봐요",
+    links: [{ href: "/resources", label: "논문·참고자료" }],
+  },
+  {
     label: "운영",
     description: "서비스 검토와 관리 메뉴예요",
     links: [{ href: "/admin", label: "관리자 검토실" }],
@@ -48,6 +57,8 @@ function splitHref(href: string) {
 }
 
 export function SiteNavigation() {
+  const { text, t } = useI18n();
+  const { user } = useAuth();
   const pathname = usePathname();
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const [hash, setHash] = useState("");
@@ -88,50 +99,53 @@ export function SiteNavigation() {
 
   return (
     <header className="site-navigation">
+      {text(user?.provider === "test" && <div className="test-session-banner" role="status">{t("테스트")}{text(user.uid.slice(-3))}{t("으로 이용 중 · 실제 신고 기능에 연결되어 있습니다")}</div>)}
       <div className="site-nav-bar">
-        <NativeLink className="brand" href="/" aria-label="나두아파 홈">
-          <span className="brand-mark" aria-hidden="true">나</span>
-          <span>나두아파</span>
+        <NativeLink className="brand" href="/" aria-label={t("나두아파 홈")}>
+          <span className="brand-mark" aria-hidden="true" translate="no">나</span>
+          <span>{t("나두아파")}</span>
         </NativeLink>
 
-        <nav className="site-nav-quick" aria-label="주요 메뉴">
-          <NativeLink href="/#signals">신호 지도</NativeLink>
-          <NativeLink className="quick-report" href="/report">증상 신고</NativeLink>
-          <NativeLink href="/law-help">법률지원</NativeLink>
+        <nav className="site-nav-quick" aria-label={t("주요 메뉴")}>
+          <NativeLink href="/#signals">{t("신호 지도")}</NativeLink>
+          <NativeLink className="quick-report" href="/report">{t("증상 신고")}</NativeLink>
+          <NativeLink href="/cdc-report">{t("CDC 신고")}</NativeLink>
+          <NativeLink href="/law-help">{t("법률지원")}</NativeLink>
         </nav>
 
+        <LanguageSelect />
         <details className="site-menu" onToggle={(event) => setMenuOpen(event.currentTarget.open)} ref={detailsRef}>
-          <summary aria-label={menuOpen ? "전체 메뉴 닫기" : "전체 메뉴 열기"}>
-            <span>전체 메뉴</span>
+          <summary aria-label={t(menuOpen ? "전체 메뉴 닫기" : "전체 메뉴 열기")}>
+            <span>{t("전체 메뉴")}</span>
             <i aria-hidden="true"><b /><b /><b /></i>
           </summary>
           <div className="site-menu-panel">
             <div className="site-menu-heading">
-              <div><span>ALL MENU</span><strong>무엇을 찾으세요?</strong></div>
-              <small>메뉴를 선택하면 바로 이동합니다</small>
+              <div><span>ALL MENU</span><strong>{t("무엇을 찾으세요?")}</strong></div>
+              <small>{t("메뉴를 선택하면 바로 이동합니다")}</small>
             </div>
-            <nav className="site-menu-groups" aria-label="전체 메뉴">
-              {menuGroups.map((group) => (
+            <nav className="site-menu-groups" aria-label={t("전체 메뉴")}>
+              {text(menuGroups.map((group) => (
                 <section key={group.label}>
-                  <h2>{group.label}</h2>
-                  <p>{group.description}</p>
+                  <h2>{text(group.label)}</h2>
+                  <p>{text(group.description)}</p>
                   <div>
-                    {group.links.map((link) => (
+                    {text(group.links.map((link) => (
                       <NativeLink
                         aria-current={isActive(link.href) ? "page" : undefined}
                         href={link.href}
                         key={`${group.label}-${link.label}`}
                         onClick={() => { if (detailsRef.current) detailsRef.current.open = false; }}
                       >
-                        <span>{link.label}</span><b aria-hidden="true">↗</b>
+                        <span>{text(link.label)}</span><b aria-hidden="true">↗</b>
                       </NativeLink>
-                    ))}
+                    )))}
                   </div>
                 </section>
-              ))}
+              )))}
             </nav>
             <div className="site-menu-account">
-              <span>내 활동</span>
+              <span>{t("내 활동")}</span>
               <SessionControl />
             </div>
           </div>

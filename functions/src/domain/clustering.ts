@@ -8,6 +8,7 @@ export type ClusterableReport = {
   foodCategory: string;
   partySymptomatic: number;
   medicalVisit: boolean;
+  hospitalized?: boolean;
   status: "submitted" | "duplicate_suspected" | "reviewed" | "included_in_cluster" | "rejected";
 };
 
@@ -20,6 +21,8 @@ export type ClusterCandidate = {
   companionSymptomaticCount: number;
   totalSymptomaticCount: number;
   medicalVisitReportCount: number;
+  outpatientReportCount?: number | null;
+  inpatientReportCount?: number | null;
   windowStart: string;
   windowEnd: string;
   status: "monitoring" | "increased_signal";
@@ -100,6 +103,8 @@ export function buildClusterCandidates(reports: ClusterableReport[], windowHours
         companionSymptomaticCount: companionCount,
         totalSymptomaticCount: independent.length + companionCount,
         medicalVisitReportCount: independent.filter((report) => report.medicalVisit).length,
+        outpatientReportCount: independent.some(r => r.medicalVisit && typeof r.hospitalized !== "boolean") ? null : independent.filter(r => r.medicalVisit && r.hospitalized === false).length,
+        inpatientReportCount: independent.some(r => r.medicalVisit && typeof r.hospitalized !== "boolean") ? null : independent.filter(r => r.hospitalized === true).length,
         windowStart: new Date(windowStartMs).toISOString(),
         windowEnd: new Date(Math.min(windowEndMs, Math.max(...independent.map((report) => Date.parse(report.mealAt))))).toISOString(),
         status: "increased_signal",

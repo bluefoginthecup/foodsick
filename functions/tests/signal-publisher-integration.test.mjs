@@ -34,6 +34,7 @@ function collection(name, filters = [], maximum = Infinity) {
 }
 const db = {
   collection,
+  getAll: async (...refs) => refs.map(r => snapshot(r.path)),
   runTransaction: async (fn) => {
     beforeTransaction?.(); beforeTransaction = undefined;
     const changes = [];
@@ -50,6 +51,7 @@ const hash = (s) => createHash("sha256").update(s).digest("hex");
 function seed() {
   documents.clear();
   const now = Date.now();
+  for (const id of ["one", "two", "three"]) put(`users/${id}`, {status:"active",provider:"kakao"});
   for (const id of ["one", "two", "three"]) put(`reports/${id}`, {
     ownerUid: id, restaurantId: "kakao_100", foodCategory: "냉면", status: "submitted", symptoms: ["설사"],
     mealAt: Timestamp.fromMillis(now - 86400_000), symptomOnsetAt: Timestamp.fromMillis(now - 80000_000),
@@ -90,4 +92,22 @@ test("loss of verified privacy evidence withdraws previously published data", as
   put(`signalPrivacyChecks/${hash("kakao_100:냉면")}`, { region: null, expiresAt: Timestamp.fromMillis(Date.now() + 3600_000) });
   await rebuildRestaurantSignals("kakao_100");
   assert.equal(publicDocs().length, 0);
+});
+
+test("all active identities contribute equally; missing and withdrawing identities do not", async () => {
+ seed(); put('users/three',{status:'active',isTest:true,testBatchId:'b'});
+ await rebuildRestaurantSignals('kakao_100');assert.equal(publicDocs().length,1);
+ documents.delete('reports/three');await rebuildRestaurantSignals('kakao_100');assert.equal(publicDocs().length,0);
+ seed();documents.delete('users/three');
+ await rebuildRestaurantSignals('kakao_100');assert.equal(publicDocs().length,0);
+ seed();put('users/three',{status:'deleting'});
+ await rebuildRestaurantSignals('kakao_100');assert.equal(publicDocs().length,0);
+});
+
+test('registered fictional venues publish on the same public collection and removal withdraws them',async()=>{
+ seed();const batch='11111111-1111-4111-8111-111111111111';const venue=`manual_test_${batch}_v2_0`;
+ put(`testBatches/${batch}`,{scenarioVersion:2,status:'active'});
+ for(const id of ['one','two','three'])put(`reports/${id}`,{...documents.get(`reports/${id}`).data,restaurantId:venue});
+ await rebuildRestaurantSignals(venue);assert.equal(publicDocs().length,1);
+ documents.delete('reports/three');await rebuildRestaurantSignals(venue);assert.equal(publicDocs().length,0);
 });

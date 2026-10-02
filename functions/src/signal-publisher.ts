@@ -4,9 +4,13 @@ import { defineSecret } from "firebase-functions/params";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { db } from "./firebase.js";
-import { buildClusterCandidates, type ClusterableReport } from "./domain/clustering.js";
-import { toPublicSignal, type SafeRegion } from "./domain/public-signal.js";
+import { buildClusterCandidates } from "./domain/clustering.js";
+import { type SafeRegion } from "./domain/public-signal.js";
 import { kakaoClient, verifyVenuePrivacy } from "./domain/venue-privacy.js";
+
+import { registeredVenueEvidence } from "./venue-evidence.js";
+import { scopedInputs } from "./signal-inputs.js";
+import { evaluateSignals } from "./domain/signal-evaluation.js";
 
 const kakaoSecret = defineSecret("KAKAO_REST_API_KEY");
 const idSecret = defineSecret("DEDUPE_HMAC_SECRET");
@@ -16,22 +20,6 @@ const MAX_REPORTS = 2000;
 const MAX_CLUSTERS = 150;
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 const fingerprint = (snapshot: QuerySnapshot) => hash(snapshot.docs.map((doc) => `${doc.id}:${doc.updateTime.seconds}:${doc.updateTime.nanoseconds}`).sort().join("|"));
-const iso = (value: unknown) => value instanceof Timestamp ? value.toDate().toISOString() : "";
-
-function clusterInputs(snapshot: QuerySnapshot, now: number): ClusterableReport[] {
-  return snapshot.docs.flatMap((doc) => {
-    const data = doc.data();
-    const mealAt = iso(data.mealAt);
-    if (!mealAt || Date.parse(mealAt) > now || Date.parse(mealAt) < now - YEAR) return [];
-    if (typeof data.ownerUid !== "string" || typeof data.restaurantId !== "string" || typeof data.foodCategory !== "string") return [];
-    return [{ id: doc.id, ownerUid: data.ownerUid, canonicalRestaurantId: data.restaurantId,
-      mealAt, symptomOnsetAt: iso(data.symptomOnsetAt),
-      foodCategory: data.foodCategory, symptoms: Array.isArray(data.symptoms) ? data.symptoms.filter((x: unknown) => typeof x === "string") : [],
-      partySymptomatic: Number.isSafeInteger(data.partySymptomatic) ? Math.max(0, data.partySymptomatic) : 0,
-      medicalVisit: data.medical?.visited === true, status: data.status }];
-  });
-}
-
 export async function rebuildRestaurantSignals(restaurantId: string) {
   if (!restaurantId || restaurantId.includes("/")) return;
   const now = Date.now();
@@ -39,13 +27,20 @@ export async function rebuildRestaurantSignals(restaurantId: string) {
     .where("mealAt", ">=", Timestamp.fromMillis(now - YEAR)).orderBy("mealAt", "desc").limit(MAX_REPORTS + 1);
   const snapshot = await query.get();
   const signature = fingerprint(snapshot);
-  const candidates = snapshot.size > MAX_REPORTS ? [] : buildClusterCandidates(clusterInputs(snapshot, now));
+  const inputs = await scopedInputs(snapshot, now);
+  const candidates = snapshot.size > MAX_REPORTS ? [] : buildClusterCandidates(inputs);
   const overflow = snapshot.size > MAX_REPORTS || candidates.length > MAX_CLUSTERS;
   const safeCandidates = overflow ? [] : candidates;
   const regions = new Map<string, { region: SafeRegion | null; expiresAt: Timestamp }>();
   let verificationFailed = false;
   for (const category of new Set(safeCandidates.map((item) => item.foodCategory))) {
     const cacheRef = db.collection("signalPrivacyChecks").doc(hash(`${restaurantId}:${category}`));
+    const registered = await registeredVenueEvidence(restaurantId,category);
+    if(registered !== undefined){
+      const expiresAt=Timestamp.fromMillis(now+PRIVACY_TTL);
+      await cacheRef.set({region:registered,expiresAt,checkedAt:FieldValue.serverTimestamp()});
+      regions.set(category,{region:registered,expiresAt});continue;
+    }
     const cached = await cacheRef.get();
     const cachedData = cached.data();
     if (cachedData?.expiresAt instanceof Timestamp && cachedData.expiresAt.toMillis() > now) {
@@ -66,15 +61,11 @@ export async function rebuildRestaurantSignals(restaurantId: string) {
   }
 
   const stateRef = db.collection("signalPublicationState").doc(hash(restaurantId));
-  const publications = safeCandidates.flatMap((cluster) => {
-    const check = regions.get(cluster.foodCategory);
-    if (!check?.region) return [];
-    // HMAC IDs cannot be reversed into a provider place ID or a report ID.
-    const id = createHmac("sha256", idSecret.value()).update(`signal-v1:${cluster.candidateId}`).digest("hex");
-    return [{ ...toPublicSignal(id, cluster, check.region),
-      validUntil: Timestamp.fromMillis(Math.min(check.expiresAt.toMillis(), Date.parse(cluster.windowEnd) + YEAR)),
-      generatedAt: FieldValue.serverTimestamp(), schemaVersion: 2 }];
-  });
+  const evaluated = evaluateSignals(overflow ? [] : inputs, new Map([...regions].map(([key,value]) => [key,value.region])), candidateId => createHmac("sha256", idSecret.value()).update(`signal-v1:${candidateId}`).digest("hex"));
+  const publications = evaluated.signals.map(signal => ({ ...signal,
+    validUntil: Timestamp.fromMillis(Math.min(regions.get(signal.category)!.expiresAt.toMillis(), Date.parse(`${signal.observedAt}T00:00:00+09:00`) + YEAR)),
+    generatedAt: FieldValue.serverTimestamp(), schemaVersion: 3,
+  }));
 
   await db.runTransaction(async (transaction) => {
     const [current, previous] = await Promise.all([transaction.get(query), transaction.get(stateRef)]);

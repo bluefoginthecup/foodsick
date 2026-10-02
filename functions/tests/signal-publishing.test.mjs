@@ -33,8 +33,8 @@ test("deduplicates accounts, keeps companions separate and hides small health co
   assert.equal(cluster.companionSymptomaticCount, 0);
   const region = { sido: "경기도", city: "용인시", district: "기흥구", dong: "", code: "41463", level: "gu", sameCategoryVenueCount: 3 };
   const view = toPublicSignal("opaque-id", cluster, region);
-  assert.equal(view.companionSymptoms, null);
-  assert.equal(view.medicalVisits, null);
+  assert.equal(view.companionSymptoms, 0);
+  assert.equal(view.medicalVisits, 0);
   const publicView = publicSignalView({ ...view, restaurantId: "private", ownerUid: "private", reportIds: ["private"], displayCenter: { lat: 37, lng: 127 }, draft: { name: "private" } });
   assert.deepEqual(publicView, view);
   assert.equal(publicSignalView({ ...view, independentReports: 2 }), null);

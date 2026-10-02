@@ -1,0 +1,50 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {evaluateSignals} from '../lib/domain/signal-evaluation.js';
+import {chooseSafeRegion,publicSignalView} from '../lib/domain/public-signal.js';
+import {testVenue} from '../lib/domain/test-fixtures.js';
+import {standardMenus,validatedPublicMenus} from '../lib/domain/report.js';
+const base={canonicalRestaurantId:'v',mealAt:'2026-09-01T00:00:00Z',symptomOnsetAt:'2026-09-04T12:00:00Z',foodCategory:'냉면',symptoms:['설사'],partySymptomatic:1,medicalVisit:true,status:'submitted',menu:'업소명 특제냉면',publicMenus:['물냉면']};
+const rows=Array.from({length:3},(_,i)=>({...base,id:String(i),ownerUid:String(i)}));
+const region=chooseSafeRegion(testVenue('b',0).regions);
+const run=(r,reg=region)=>evaluateSignals(r,new Map([['냉면',reg]]),()=> 'id');
+test('medical categories are disjoint and distinguish zero, small counts, exact counts and unknown history',()=>{
+ const mixed=run(rows.map((r,i)=>({...r,partySymptomatic:0,medicalVisit:i!==2,hospitalized:i===1}))).signals[0];
+ assert.equal(mixed.companionSymptoms,0);
+ assert.equal(mixed.outpatientVisits,null);assert.equal(mixed.inpatientVisits,null);
+ assert.ok(mixed.smallDetails.includes('outpatientVisits'));assert.ok(mixed.smallDetails.includes('inpatientVisits'));
+ const admitted=run(rows.map(r=>({...r,hospitalized:true}))).signals[0];
+ assert.equal(admitted.outpatientVisits,0);assert.equal(admitted.inpatientVisits,3);
+ const outpatient=run(rows.map(r=>({...r,hospitalized:false}))).signals[0];
+ assert.equal(outpatient.outpatientVisits,3);assert.equal(outpatient.inpatientVisits,0);
+ const unknown=run(rows).signals[0];assert.equal(unknown.outpatientVisits,null);assert.ok(!unknown.smallDetails.includes('outpatientVisits'));
+ assert.equal(publicSignalView({...mixed,smallDetails:['ownerUid','inpatientVisits']}).smallDetails.includes('ownerUid'),false);
+});
+test('same evaluator enforces distinct owners, exact 72h boundary, deletion and status',()=>{
+ assert.equal(run(rows.slice(0,2)).signals.length,0);
+ assert.equal(run(rows).signals.length,1);
+ assert.equal(run([...rows.slice(0,2),{...rows[2],ownerUid:'0'}]).signals.length,0);
+ assert.equal(run([...rows.slice(0,2),{...rows[2],mealAt:'2026-09-04T00:00:00Z'}]).signals.length,1);
+ assert.equal(run([...rows.slice(0,2),{...rows[2],mealAt:'2026-09-04T00:00:01Z'}]).signals.length,0);
+ assert.equal(run(rows.map((r,i)=>i===2?{...r,status:'rejected'}:r)).signals.length,0);
+ assert.equal(run([{...rows[0],partySymptomatic:20}]).signals.length,0);
+});
+test('same privacy choice broadens region and hides small detail and menu subgroups',()=>{
+ assert.equal(chooseSafeRegion(testVenue('b',0).regions).level,'dong');
+ assert.equal(chooseSafeRegion(testVenue('b',1).regions).level,'gu');
+ assert.equal(chooseSafeRegion(testVenue('b',2).regions).level,'city');
+ assert.equal(chooseSafeRegion(testVenue('b',3).regions),null);
+ assert.equal(run(rows,null).signals.length,0);
+ const signal=run(rows.map((r,i)=>({...r,medicalVisit:i===0,partySymptomatic:i===0?1:0,publicMenus:i===0?['비빔냉면']:['물냉면']}))).signals[0];
+ assert.equal(signal.medicalVisits,null);assert.equal(signal.companionSymptoms,null);assert.deepEqual(signal.publicMenus,[]);
+ assert.deepEqual(run(rows).signals[0].publicMenus,[]);
+ assert.deepEqual(run(rows.map(r=>({...r,menuReview:{menus:[]}}))).signals[0].publicMenus,[]);
+});
+test('free text and malicious menu names never cross the public allowlist',()=>{
+ assert.deepEqual(standardMenus('OO식당 특제냉면'),[]);
+ assert.deepEqual(standardMenus('물냉면, 만두'),['물냉면','만두']);
+ assert.throws(()=>validatedPublicMenus(['OO식당']));
+ const signal=run(rows).signals[0];
+ const view=publicSignalView({...signal,publicMenus:['물냉면','개인정보 01012345678'],menu:'secret',ownerUid:'private'});
+ assert.deepEqual(view.publicMenus,[]);assert.equal(view.menu,undefined);assert.equal(view.ownerUid,undefined);
+});

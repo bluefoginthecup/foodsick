@@ -1,3 +1,14 @@
+// Only these common names can cross the public API boundary. Never strip free text heuristically.
+export const PUBLIC_MENUS = ["냉면", "물냉면", "비빔냉면", "만두", "김밥", "떡볶이", "비빔밥", "볶음밥", "국밥", "찌개", "짜장면", "짬뽕", "탕수육", "초밥", "회", "돈가스", "우동", "라면", "파스타", "피자", "치킨", "햄버거", "샐러드", "샌드위치", "구이", "조개구이", "도시락", "빵", "떡", "아이스크림", "육회"] as const;
+export function standardMenus(raw: unknown): string[] {
+  if (typeof raw !== "string") return [];
+  return [...new Set(raw.split(/[,，/·\n]/).map(s => s.trim()).filter(s => (PUBLIC_MENUS as readonly string[]).includes(s)))];
+}
+export function validatedPublicMenus(value: unknown): string[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 8 || value.some(v => typeof v !== "string" || !(PUBLIC_MENUS as readonly string[]).includes(v))) throw new InputError("publicMenus", "공개용 메뉴를 목록에서 선택해주세요.");
+  return [...new Set(value)] as string[];
+}
 export const FOOD_CATEGORIES = [
   "냉면", "한식", "회/초밥", "중식", "일식", "양식", "분식", "고기/구이", "해산물/조개",
   "국/탕/찌개", "면요리", "치킨", "피자", "햄버거/패스트푸드", "동남아/아시아", "인도/중동",
@@ -35,6 +46,7 @@ export type ReportInput = {
   foodCategory: (typeof FOOD_CATEGORIES)[number];
   foodCategoryDetail: string;
   menu: string;
+  publicMenus?: string[];
   serviceMode: (typeof SERVICE_MODES)[number];
   symptoms: string[];
   diarrheaCount: number;
@@ -182,6 +194,7 @@ export function validateReportInput(input: unknown): ValidatedReport {
     foodCategory: foodCategory as ReportInput["foodCategory"],
     foodCategoryDetail: optionalString(record, "foodCategoryDetail", 50),
     menu: optionalString(record, "menu", 100),
+    publicMenus: record.publicMenus === undefined ? standardMenus(record.menu) : validatedPublicMenus(record.publicMenus),
     serviceMode: serviceMode as ReportInput["serviceMode"],
     symptoms: stringList(record, "symptoms", SYMPTOMS, true),
     diarrheaCount: boundedInteger(record, "diarrheaCount", 0, 50),

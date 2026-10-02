@@ -7,7 +7,7 @@ import { firebaseBackendEnabled, getFirebaseClient } from "../firebase/client";
 
 export type SessionUser = {
   uid: string;
-  provider: "kakao";
+  provider: "kakao" | "test";
   identityVerified: false;
   identityProvider: null;
   identityKey: null;
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const token = await firebaseUser.getIdTokenResult();
           setUser({
             uid: firebaseUser.uid,
-            provider: "kakao",
+            provider: token.claims.provider === "test" ? "test" : "kakao",
             identityVerified: false,
             identityProvider: null,
             identityKey: null,

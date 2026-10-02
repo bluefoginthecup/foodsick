@@ -56,9 +56,12 @@ export default defineConfig(async () => {
       // outside Vinext's ESM server bundle so Node.js loads it natively.
       external: ["firebase-admin"],
     },
-    server: isCodexSeatbeltSandbox
-      ? { watch: { useFsEvents: false, usePolling: true } }
-      : undefined,
+    server: {
+      watch: {
+        ignored: ["**/work/**", "**/dist/**", "**/.firebase/**"],
+        ...(isCodexSeatbeltSandbox ? { useFsEvents: false, usePolling: true } : {}),
+      },
+    },
     plugins: [
       vinext(),
       sites(),

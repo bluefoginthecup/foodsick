@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /_sites-preview/
+
+Sitemap: https://nadooapa.kr/sitemap.xml

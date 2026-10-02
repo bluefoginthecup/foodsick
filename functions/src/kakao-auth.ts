@@ -22,6 +22,7 @@ const kakaoRedirectUri = defineString("KAKAO_REDIRECT_URI", {
 const STATE_TTL_MS = 10 * 60_000;
 const EXCHANGE_TTL_MS = 5 * 60_000;
 const allowedSiteOrigins = new Set([
+  "https://nadooapa.kr",
   "https://apayo-signal-map.designmonster.chatgpt.site",
   "https://apayo--foodsick-signal-map-kr.asia-east1.hosted.app",
   "https://foodsick-signal-map-kr.web.app",

@@ -31,7 +31,7 @@ test("report deletion checks ownership, removes companions and releases duplicat
 });
 test("withdrawal locks account, resumes failed cleanup and never removes another member", async () => {
   docs.clear(); docs.set('users/alice', { nickname: 'A' }); docs.set('users/bob', { nickname: 'B' });
-  for (const name of ['reports','companionObservations','dedupeKeys','memberActivities']) {
+  for (const name of ['reports','cdcReports','companionObservations','dedupeKeys','memberActivities']) {
     docs.set(`${name}/a`, { ownerUid: 'alice' }); docs.set(`${name}/b`, { ownerUid: 'bob' });
   }
   docs.set('rateLimits/a', { uid: 'alice' }); docs.set('kakaoAuthExchanges/a', { uid: 'alice' });

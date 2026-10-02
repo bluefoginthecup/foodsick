@@ -1,8 +1,8 @@
 "use client";
 
-import { getApp, getApps, initializeApp, type FirebaseApp, type FirebaseOptions } from "firebase/app";
+import { getApps, initializeApp, type FirebaseApp, type FirebaseOptions } from "firebase/app";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
-import { getAuth, type Auth } from "firebase/auth";
+import { getAuth, initializeAuth, browserSessionPersistence, type Auth } from "firebase/auth";
 import { connectFunctionsEmulator, getFunctions, type Functions } from "firebase/functions";
 
 export type FirebaseClient = {
@@ -43,7 +43,11 @@ export function getFirebaseClient(): FirebaseClient | null {
   if (!config) return null;
   if (client) return client;
 
-  const app = getApps().length ? getApp() : initializeApp(config);
+  const testSession = window.location.pathname === "/test-login" || window.sessionStorage.getItem("foodsick.test-session") === "true";
+  if (testSession) window.sessionStorage.setItem("foodsick.test-session", "true");
+  const appName = testSession ? "test-session" : "[DEFAULT]";
+  const existingApp = getApps().find(item => item.name === appName);
+  const app = existingApp ?? initializeApp(config, appName);
   const appCheckSiteKey = process.env.NEXT_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY;
   if (appCheckSiteKey && !appCheckInitialized) {
     initializeAppCheck(app, {
@@ -53,7 +57,7 @@ export function getFirebaseClient(): FirebaseClient | null {
     appCheckInitialized = true;
   }
 
-  const auth = getAuth(app);
+  const auth = testSession && !existingApp ? initializeAuth(app, { persistence: browserSessionPersistence }) : getAuth(app);
   const functions = getFunctions(app, "asia-northeast3");
   if (process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATORS === "true") {
     connectFunctionsEmulator(functions, "127.0.0.1", 5001);
@@ -62,3 +66,4 @@ export function getFirebaseClient(): FirebaseClient | null {
   client = { app, auth, functions };
   return client;
 }
+
