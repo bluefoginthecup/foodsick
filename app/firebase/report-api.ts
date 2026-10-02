@@ -44,9 +44,15 @@ export async function getFirebaseReports() {
 }
 
 export type AdminReport = Omit<FirebaseStoredReport, "draft"> & { draft: ReportDraft | null; sensitiveDataConsentVersion?: string };
-export async function getFirebaseAdminReports(cursor?: string) {
-  const call = httpsCallable<{ cursor?: string }, { reports: AdminReport[]; nextCursor: string | null }>(functionsClient(), "getAdminReports");
-  return (await call(cursor ? { cursor } : {})).data;
+export async function getFirebaseAdminReports(cursor?: string, ownerUid?: string) {
+  const call = httpsCallable<{ cursor?: string; ownerUid?: string }, { reports: AdminReport[]; nextCursor: string | null }>(functionsClient(), "getAdminReports");
+  return (await call({ ...(cursor ? { cursor } : {}), ...(ownerUid ? { ownerUid } : {}) })).data;
+}
+
+export type AdminMember = { uid: string; nickname: string; status: "active" | "deleting"; provider: string; role: "admin" | "user"; createdAt: string; lastLoginAt: string; reportCount: number };
+export async function getFirebaseAdminMembers(search = "", cursor?: string) {
+  const call = httpsCallable<{ search: string; cursor?: string }, { members: AdminMember[]; nextCursor: string | null }>(functionsClient(), "getAdminMembers");
+  return (await call({ search, ...(cursor ? { cursor } : {}) })).data;
 }
 
 export async function getFirebasePublicSignals() {
@@ -65,4 +71,13 @@ export async function getFirebasePublicSignals() {
 export async function setFirebaseReportStatus(reportId: string, status: ReportStatus, note: string) {
   const call = httpsCallable<{ reportId: string; status: ReportStatus; note: string }, { ok: boolean }>(functionsClient(), "setReportStatus");
   return (await call({ reportId, status, note })).data.ok;
+}
+
+export type MemberActivity = { id: string; action: string; reportId: string | null; actorUid: string | null; createdAt: string };
+export async function getFirebaseMemberActivities(uid: string, cursor?: string) {
+  const call = httpsCallable<{ uid: string; cursor?: string }, { activities: MemberActivity[]; nextCursor: string | null }>(functionsClient(), "getMemberActivities");
+  return (await call({ uid, ...(cursor ? { cursor } : {}) })).data;
+}
+export async function deleteFirebaseReport(reportId: string) {
+  return (await httpsCallable<{ reportId: string }, { ok: boolean }>(functionsClient(), "deleteMyReport")({ reportId })).data.ok;
 }

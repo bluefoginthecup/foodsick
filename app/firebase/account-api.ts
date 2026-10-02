@@ -12,3 +12,7 @@ export async function getMyAccount() {
 export async function updateMyAccount(nickname: string) {
   return (await httpsCallable<{ nickname: string }, { nickname: string }>(client(), "updateMyAccount")({ nickname })).data;
 }
+
+export async function withdrawMyAccount() {
+  return (await httpsCallable<{ confirmation: string }, { accepted: boolean }>(client(), "withdrawMyAccount")({ confirmation: "탈퇴" })).data;
+}

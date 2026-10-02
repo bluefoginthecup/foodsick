@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/auth-context";
 import { NativeLink } from "../native-link";
-import { getMyAccount, updateMyAccount, type MyAccount } from "../firebase/account-api";
+import { getMyAccount, updateMyAccount, withdrawMyAccount, type MyAccount } from "../firebase/account-api";
 
 export default function AccountPage() {
   const { user, loading, firebaseMode, logout } = useAuth();
@@ -12,6 +12,9 @@ export default function AccountPage() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+  const [withdrawn, setWithdrawn] = useState(false);
   const currentUid = useRef(user?.uid);
   useEffect(() => { currentUid.current = user?.uid; }, [user?.uid]);
   useEffect(() => {
@@ -41,6 +44,7 @@ export default function AccountPage() {
     finally { setBusy(false); }
   };
   const date = (value: string | null) => value ? new Date(value).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }) : "기록 없음";
+  if (withdrawn) return <main className="narrow-page"><h1>탈퇴 요청을 접수했어요</h1><p>계정 접근을 차단하고 신고·동행자 정보·별명·활동 기록을 삭제하고 있습니다. 공개 집계 반영에는 잠시 시간이 걸릴 수 있습니다.</p><NativeLink className="primary-button" href="/">지도로 돌아가기</NativeLink></main>;
   if (loading) return <main className="narrow-page"><p role="status">로그인 확인 중…</p></main>;
   if (!user) return <main className="narrow-page"><section className="empty-reports"><h1>내 계정</h1><p>계정 정보를 확인하려면 로그인해주세요.</p><NativeLink className="kakao-button" href="/login?returnTo=%2Faccount">카카오로 시작하기</NativeLink></section></main>;
   const ready = account?.uid === user.uid;
@@ -65,5 +69,10 @@ export default function AccountPage() {
       <p>카카오 이름·이메일·전화번호는 수집하지 않습니다. 비밀번호는 카카오에서 관리합니다.</p></section>
     </>}
     <section className="account-card account-links"><h2>내 활동</h2><NativeLink className="secondary-button" href="/my-reports">내 신고 확인·수정</NativeLink><NativeLink className="secondary-button" href="/report">새 신고 작성</NativeLink><button className="text-link" disabled={busy} type="button" onClick={() => { setBusy(true); void logout().catch(() => { setError("로그아웃하지 못했습니다. 다시 시도해주세요."); }).finally(() => setBusy(false)); }}>로그아웃</button></section>
+    {firebaseMode && <section className="account-card"><h2>회원 탈퇴</h2><p>탈퇴하면 계정 정보와 작성한 모든 신고가 삭제되며 복구할 수 없습니다.</p><button className="text-link danger-link" type="button" disabled={busy} onClick={() => setWithdrawOpen(!withdrawOpen)}>회원 탈퇴 안내</button>
+      {withdrawOpen && <div className="delete-confirm"><label htmlFor="withdraw-confirmation">계속하려면 ‘탈퇴’를 입력해주세요</label><input id="withdraw-confirmation" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" disabled={busy} /><button className="danger-button" type="button" disabled={busy || confirmation !== "탈퇴"} onClick={() => {
+        setBusy(true); setError(""); void withdrawMyAccount().then(async () => { setWithdrawn(true); await logout().catch(() => {}); }).catch(() => setError("탈퇴를 접수하지 못했습니다. 다시 시도해주세요.")).finally(() => setBusy(false));
+      }}>{busy ? "접수 중…" : "회원 탈퇴 확정"}</button></div>}
+    </section>}
   </main>;
 }

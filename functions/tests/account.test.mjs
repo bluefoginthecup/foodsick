@@ -4,7 +4,7 @@ const records = new Map([["alice", { nickname: "원래별명", role: "admin", pr
 const ref = (uid) => ({ uid, get: async () => ({ exists: records.has(uid), data: () => records.get(uid) }) });
 mock.module("../lib/firebase.js", { namedExports: { db: {
   collection: () => ({ doc: ref }),
-  runTransaction: async (fn) => fn({ get: (doc) => doc.get(), update: (doc, patch) => records.set(doc.uid, { ...records.get(doc.uid), ...patch }) }),
+  runTransaction: async (fn) => fn({ create: () => {}, get: (doc) => doc.get(), update: (doc, patch) => records.set(doc.uid, { ...records.get(doc.uid), ...patch }) }),
 } } });
 const { getMyAccount, updateMyAccount } = await import("../lib/account.js");
 const auth = { uid: "alice", token: {} };

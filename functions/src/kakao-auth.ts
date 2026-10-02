@@ -1,3 +1,4 @@
+import { recordActivity } from "./activity.js";
 import { randomBytes } from "node:crypto";
 import type { Response } from "express";
 import { getAuth } from "firebase-admin/auth";
@@ -149,6 +150,8 @@ export const kakaoLoginCallback = onRequest({
 
     await db.runTransaction(async (transaction) => {
       const user = await transaction.get(userRef);
+      if (user.get("status") === "deleting") throw new Error("Account deletion in progress");
+      recordActivity(transaction, uid, user.exists ? "login" : "joined");
       transaction.create(exchangeRef, {
         uid,
         createdAt: FieldValue.serverTimestamp(),
@@ -160,7 +163,7 @@ export const kakaoLoginCallback = onRequest({
         identityVerified: false,
         updatedAt: FieldValue.serverTimestamp(),
         lastLoginAt: FieldValue.serverTimestamp(),
-        ...(!user.exists ? { createdAt: FieldValue.serverTimestamp() } : {}),
+        ...(!user.exists ? { createdAt: FieldValue.serverTimestamp(), sessionVersion: randomToken() } : {}),
       }, { merge: true });
     });
 
@@ -181,7 +184,7 @@ export const completeKakaoLogin = onCall({ region, enforceAppCheck: false }, asy
   }
 
   const exchangeRef = db.collection("kakaoAuthExchanges").doc(sha256Base64Url(exchange));
-  const { uid, role } = await db.runTransaction(async (transaction) => {
+  const { uid, role, sessionVersion } = await db.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(exchangeRef);
     if (!snapshot.exists || snapshot.get("usedAt")) throw new HttpsError("failed-precondition", "이미 사용했거나 만료된 로그인입니다.");
     const expiresAt = snapshot.get("expiresAt");
@@ -191,14 +194,16 @@ export const completeKakaoLogin = onCall({ region, enforceAppCheck: false }, asy
     const exchangeUid = snapshot.get("uid");
     if (typeof exchangeUid !== "string") throw new HttpsError("internal", "로그인 정보를 확인하지 못했습니다.");
     const user = await transaction.get(db.collection("users").doc(exchangeUid));
+    if (!user.exists || user.get("status") === "deleting") throw new HttpsError("unauthenticated", "탈퇴 처리 중인 계정입니다.");
     transaction.update(exchangeRef, { usedAt: FieldValue.serverTimestamp() });
-    return { uid: exchangeUid, role: user.exists && user.get("role") === "admin" ? "admin" : "user" } as const;
+    return { uid: exchangeUid, sessionVersion: user.get("sessionVersion") as string | undefined, role: user.exists && user.get("role") === "admin" ? "admin" : "user" } as const;
   });
 
   const customToken = await getAuth().createCustomToken(uid, {
     provider: "kakao",
     role,
     identityVerified: false,
+    ...(sessionVersion ? { sessionVersion } : {}),
   });
   return { customToken };
 });

@@ -5,7 +5,7 @@ let reads = 0;
 let offset = 0;
 const records = Array.from({ length: 51 }, (_, index) => ({ id: `report_${index}`, exists: true, data: () => ({ ownerUid: `owner_${index}`, status: "submitted", draft: { menu: "작성한 메뉴", otherSymptom: "직접 적은 증상", companions: [{ otherUnderlyingCondition: "동행자 원문" }] }, createdAt: Timestamp.fromMillis(1000), updatedAt: Timestamp.fromMillis(2000), sensitiveDataConsentVersion: "consent-v1" }) }));
 const query = { orderBy: () => query, startAfter: (doc) => { offset = records.findIndex(r => r.id === doc.id) + 1; return query; }, limit: () => query, get: async () => { reads++; return { docs: records.slice(offset) }; }, doc: (id) => ({ get: async () => records.find(r => r.id === id) ?? { exists: false } }) };
-mock.module("../lib/firebase.js", { namedExports: { db: { collection: () => query } } });
+mock.module("../lib/firebase.js", { namedExports: { db: { collection: (name) => name === "users" ? { doc: () => ({ get: async () => ({ exists: true, data: () => ({ role: "admin" }) }) }) } : query } } });
 const { getAdminReports } = await import("../lib/admin-reports.js");
 test("anonymous and ordinary users cannot read any admin report data", async () => {
   for (const auth of [undefined, { uid: "user", token: { role: "user" } }]) {

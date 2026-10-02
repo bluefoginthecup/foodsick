@@ -6,6 +6,8 @@ import { NativeLink } from "../native-link";
 import { useReports } from "../reports/report-store";
 import { useContactFeedback } from "../contact-feedback/contact-feedback-store";
 import { ReportReviewPanel } from "./report-review";
+import { MemberList } from "./member-list";
+import { MemberActivityPanel } from "./member-activity";
 import { LawFirmReviewPanel } from "./law-firm-review";
 
 const feedbackReasonLabel = {
@@ -19,7 +21,8 @@ export default function AdminPage() {
   const { user, loading, firebaseMode, logout } = useAuth();
   const { auditEvents } = useReports();
   const { feedback } = useContactFeedback();
-  const [activeTab, setActiveTab] = useState<"reports" | "clusters" | "contacts" | "law_firms" | "audit">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "members" | "clusters" | "contacts" | "law_firms" | "audit">("reports");
+  const [reportOwner, setReportOwner] = useState<string | undefined>();
 
   if (loading) {
     return <main className="admin-gate" aria-live="polite"><span aria-hidden="true">…</span><h1>권한 확인 중</h1></main>;
@@ -55,6 +58,7 @@ export default function AdminPage() {
         <p>원본 음식점 정보는 이 관리자 영역에서만 확인합니다.</p>
       </section>
       <nav className="admin-tabs" aria-label="관리자 메뉴">
+        <button className={activeTab === "members" ? "active" : ""} onClick={() => setActiveTab("members")} type="button">회원 목록</button>
         <button className={activeTab === "reports" ? "active" : ""} onClick={() => setActiveTab("reports")} type="button">신고</button>
         <button className={activeTab === "clusters" ? "active" : ""} onClick={() => setActiveTab("clusters")} type="button">클러스터</button>
         <button className={activeTab === "contacts" ? "active" : ""} onClick={() => setActiveTab("contacts")} type="button">연락처 오류 {feedback.length ? `(${feedback.length})` : ""}</button>
@@ -62,7 +66,12 @@ export default function AdminPage() {
         <button className={activeTab === "audit" ? "active" : ""} onClick={() => setActiveTab("audit")} type="button">감사기록</button>
       </nav>
 
-      {activeTab === "reports" && <ReportReviewPanel />}
+      {activeTab === "members" && <MemberList onReports={(uid) => { setReportOwner(uid); setActiveTab("reports"); }} />}
+      {activeTab === "reports" && <>
+        {reportOwner && <div className="member-report-filter"><span>회원 {reportOwner}의 신고</span><button type="button" onClick={() => setReportOwner(undefined)}>전체 신고 보기</button></div>}
+        <ReportReviewPanel key={reportOwner ?? "all"} ownerUid={reportOwner} />
+        {reportOwner && firebaseMode && <MemberActivityPanel key={`activity-${reportOwner}`} uid={reportOwner} />}
+      </>}
 
       {activeTab === "clusters" && firebaseMode && <p>공개 집계 결과는 공개 지도에서 확인할 수 있습니다.</p>}
       {activeTab === "clusters" && !firebaseMode && (

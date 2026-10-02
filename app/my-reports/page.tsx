@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 
 import { useAuth } from "../auth/auth-context";
 import { NativeLink } from "../native-link";
@@ -14,7 +15,10 @@ const statusLabel = {
 
 export default function MyReportsPage() {
   const { user, loading, firebaseMode } = useAuth();
-  const { reports } = useReports();
+  const { reports, deleteReport } = useReports();
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
   const mine = user ? reports.filter((report) => report.ownerUid === user.uid) : [];
 
   if (loading) {
@@ -72,11 +76,17 @@ export default function MyReportsPage() {
                 <div><dt>증상</dt><dd>{report.draft.symptoms.join(", ")}</dd></div>
                 <div><dt>동행 증상자</dt><dd>{report.draft.partySymptomatic}명</dd></div>
               </dl>
-              <NativeLink className="edit-report" href={`/report?edit=${report.id}`}>신고 내용 수정</NativeLink>
+              {report.status !== "rejected" && <NativeLink className="edit-report" href={`/report?edit=${report.id}`}>신고 내용 수정</NativeLink>}
+              {report.status === "rejected" && <p>집계 제외된 신고는 수정할 수 없습니다.</p>}
+              <button className="text-link danger-link" type="button" disabled={busy} onClick={() => setConfirmId(report.id)}>신고 삭제</button>
+              {confirmId === report.id && <div className="delete-confirm" role="group" aria-label="신고 삭제 확인"><strong>이 신고를 삭제할까요?</strong><p>작성 내용과 동행자 정보가 삭제되며 복구할 수 없습니다. 공개 집계에서도 제외됩니다.</p><button className="secondary-button" type="button" disabled={busy} onClick={() => setConfirmId(null)}>취소</button><button className="danger-button" type="button" disabled={busy} onClick={() => {
+                setBusy(true); setMessage(""); void deleteReport(report.id).then(() => { setConfirmId(null); setMessage("신고를 삭제했어요. 공개 집계 반영에는 잠시 시간이 걸릴 수 있습니다."); }).catch(() => setMessage("신고를 삭제하지 못했습니다. 다시 시도해주세요.")).finally(() => setBusy(false));
+              }}>{busy ? "삭제 중…" : "삭제 확정"}</button></div>}
             </article>
           ))}
         </div>
       )}
+      {message && <p role="status">{message}</p>}
     </main>
   );
 }

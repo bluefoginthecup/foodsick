@@ -8,6 +8,7 @@ import {
   setFirebaseReportStatus,
   submitFirebaseReport,
   updateFirebaseReport,
+  deleteFirebaseReport,
 } from "../firebase/report-api";
 import { canTransitionReport } from "../security/policy";
 
@@ -38,6 +39,7 @@ type CreateResult =
   | { kind: "duplicate"; report: StoredReport };
 
 type ReportStoreValue = {
+  deleteReport: (reportId: string) => Promise<void>;
   reports: StoredReport[];
   sessionRestored: boolean;
   createReport: (ownerUid: string, draft: ReportDraft) => Promise<CreateResult>;
@@ -132,12 +134,18 @@ export function ReportStoreProvider({ children }: { children: ReactNode }) {
     if (firebaseMode || !sessionRestored) return;
     window.sessionStorage.setItem(SESSION_REPORTS_KEY, JSON.stringify(reports));
     window.sessionStorage.setItem(SESSION_AUDIT_KEY, JSON.stringify(auditEvents));
-  }, [auditEvents, firebaseMode, reports, sessionRestored]);
+  }, [auditEvents, firebaseMode, reports, sessionRestored, user?.uid]);
 
   const value = useMemo<ReportStoreValue>(() => ({
     reports,
     sessionRestored,
     auditEvents,
+    async deleteReport(reportId) {
+      const report = reports.find((item) => item.id === reportId && item.ownerUid === user?.uid);
+      if (!report) throw new Error("본인 신고만 삭제할 수 있습니다.");
+      if (firebaseMode && !(await deleteFirebaseReport(reportId))) throw new Error("신고 삭제에 실패했습니다.");
+      setReports((current) => current.filter((item) => item.id !== reportId));
+    },
     async createReport(ownerUid, draft) {
       const dedupeKey = makeDedupeKey(ownerUid, draft.restaurantInternalId, draft.mealDate);
       const duplicate = reports.find((report) => report.dedupeKey === dedupeKey && report.status !== "rejected");
@@ -216,7 +224,7 @@ export function ReportStoreProvider({ children }: { children: ReactNode }) {
       }, ...current]);
       return true;
     },
-  }), [auditEvents, firebaseMode, reports, sessionRestored]);
+  }), [auditEvents, firebaseMode, reports, sessionRestored, user?.uid]);
 
   return <ReportStore.Provider value={value}>{children}</ReportStore.Provider>;
 }

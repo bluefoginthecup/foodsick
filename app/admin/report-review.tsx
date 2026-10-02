@@ -7,7 +7,7 @@ import { getFirebaseAdminReports, setFirebaseReportStatus, type AdminReport } fr
 import { ReportDetails } from "./report-details";
 
 const statuses: Record<string, string> = { submitted: "접수됨", reviewed: "검토 완료", duplicate_suspected: "중복 의심", included_in_cluster: "집계 포함", rejected: "집계 제외" };
-export function ReportReviewPanel() {
+export function ReportReviewPanel({ ownerUid }: { ownerUid?: string }) {
   const { user, firebaseMode } = useAuth();
   const { reports: demoReports, setReportStatus } = useReports();
   const [reports, setReports] = useState<AdminReport[]>([]);
@@ -21,17 +21,17 @@ export function ReportReviewPanel() {
   useEffect(() => {
     let cancelled = false;
     if (!firebaseMode) return;
-    void getFirebaseAdminReports().then((result) => {
+    void getFirebaseAdminReports(undefined, ownerUid).then((result) => {
       if (!cancelled) { setReports(result.reports); setCursor(result.nextCursor); }
     }).catch(() => { if (!cancelled) setError("신고 목록을 불러오지 못했습니다. 다시 시도해주세요."); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [firebaseMode, refresh]);
+  }, [firebaseMode, refresh, ownerUid]);
   const more = async () => {
     if (!cursor || loading) return;
     setLoading(true); setError("");
     try {
-      const result = await getFirebaseAdminReports(cursor);
+      const result = await getFirebaseAdminReports(cursor, ownerUid);
       setReports((previous) => [...previous, ...result.reports.filter((item) => !previous.some((existing) => existing.id === item.id))]);
       setCursor(result.nextCursor);
     } catch { setError("다음 신고를 불러오지 못했습니다. 다시 시도해주세요."); }
@@ -49,7 +49,7 @@ export function ReportReviewPanel() {
     } catch { setError("검토 결과를 저장하지 못했습니다. 다시 시도해주세요."); }
     finally { setBusy(null); }
   };
-  const items = firebaseMode ? reports : demoReports;
+  const items = firebaseMode ? reports : demoReports.filter((report) => !ownerUid || report.ownerUid === ownerUid);
   return <section className="admin-list" aria-label="전체 신고 검토">
     <div className="admin-review-toolbar"><p>{items.length}건 불러옴{cursor ? " · 다음 신고 있음" : ""}</p>{firebaseMode && <button type="button" disabled={loading || !!busy} onClick={() => { setLoading(true); setError(""); setRefresh((n) => n + 1); }}>새로고침</button>}</div>
     {error && <p className="form-error" role="alert">{error}</p>}

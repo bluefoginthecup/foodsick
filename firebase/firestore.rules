@@ -1,7 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
+    function signedIn() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('status', 'active') != 'deleting'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('sessionVersion', null) == request.auth.token.get('sessionVersion', null);
+    }
     function isAdmin() { return signedIn() && request.auth.token.role == 'admin'; }
     function isOwner(data) { return signedIn() && data.ownerUid == request.auth.uid; }
 

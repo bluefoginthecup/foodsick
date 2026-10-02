@@ -1,8 +1,9 @@
+import { recordActivity } from "./activity.js";
 import { createHash } from "node:crypto";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { requireAdmin, requireUid } from "./common.js";
+import { assertActiveAccount, requireAdmin, requireUid } from "./common.js";
 import { createDedupeKey, rateLimitBucket } from "./domain/keys.js";
 import { InputError, validateReportInput } from "./domain/report.js";
 import { db } from "./firebase.js";
@@ -108,7 +109,7 @@ function rateLimitId(uid: string, action: string, now: Date) {
 
 export const submitReport = onCall(callableOptions, async (request) => {
   try {
-    const ownerUid = requireUid(request);
+    const ownerUid = await requireUid(request);
     const report = validateReportInput(request.data);
     const now = new Date();
     const key = createDedupeKey(dedupeSecret.value(), ownerUid, report.restaurantInternalId, report.mealDate);
@@ -119,6 +120,7 @@ export const submitReport = onCall(callableOptions, async (request) => {
     const companionRef = db.collection("companionObservations").doc(reportRef.id);
 
     return await db.runTransaction(async (transaction) => {
+      assertActiveAccount(await transaction.get(db.collection("users").doc(ownerUid)), request.auth?.token.sessionVersion);
       const [dedupeSnapshot, rateSnapshot, restaurantSnapshot] = await Promise.all([
         transaction.get(dedupeRef),
         transaction.get(rateRef),
@@ -156,6 +158,7 @@ export const submitReport = onCall(callableOptions, async (request) => {
         });
       }
       transaction.create(dedupeRef, { ownerUid, restaurantId: report.restaurantInternalId, mealDate: report.mealDate, reportId: reportRef.id, version: 1, createdAt: serverTimestamp });
+      recordActivity(transaction, ownerUid, "report_created", reportRef.id);
       return { outcome: "created" as const, reportId: reportRef.id };
     });
   } catch (error) {
@@ -165,7 +168,7 @@ export const submitReport = onCall(callableOptions, async (request) => {
 
 export const updateReport = onCall(callableOptions, async (request) => {
   try {
-    const ownerUid = requireUid(request);
+    const ownerUid = await requireUid(request);
     const envelope = request.data as { reportId?: unknown; report?: unknown };
     const reportId = typeof envelope.reportId === "string" ? envelope.reportId : "";
     if (!reportId) throw new InputError("reportId", "수정할 신고를 확인해주세요.");
@@ -178,6 +181,7 @@ export const updateReport = onCall(callableOptions, async (request) => {
     const rateRef = db.collection("rateLimits").doc(rateLimitId(ownerUid, "report-update", new Date()));
 
     await db.runTransaction(async (transaction) => {
+      assertActiveAccount(await transaction.get(db.collection("users").doc(ownerUid)), request.auth?.token.sessionVersion);
       const currentSnapshot = await transaction.get(reportRef);
       if (!currentSnapshot.exists || currentSnapshot.get("ownerUid") !== ownerUid) throw new HttpsError("not-found", "수정할 신고를 찾을 수 없습니다.");
       if (currentSnapshot.get("status") === "rejected") throw new HttpsError("failed-precondition", "집계 제외된 신고는 수정할 수 없습니다.");
@@ -209,6 +213,7 @@ export const updateReport = onCall(callableOptions, async (request) => {
       transaction.update(reportRef, reportDocument(ownerUid, report, serverTimestamp));
       if (report.partySymptomatic > 0) transaction.set(companionRef, companionDocument(ownerUid, reportId, report, serverTimestamp), { merge: true });
       else transaction.delete(companionRef);
+      recordActivity(transaction, ownerUid, "report_updated", reportId);
       if (oldKey !== newKey) transaction.delete(oldDedupeRef);
       transaction.set(newDedupeRef, { ownerUid, restaurantId: report.restaurantInternalId, mealDate: report.mealDate, reportId, version: 1, updatedAt: serverTimestamp }, { merge: true });
     });
@@ -219,7 +224,7 @@ export const updateReport = onCall(callableOptions, async (request) => {
 });
 
 export const getMyReports = onCall({ region: "asia-northeast3", enforceAppCheck: false }, async (request) => {
-  const ownerUid = requireUid(request);
+  const ownerUid = await requireUid(request);
   const snapshot = await db.collection("reports").where("ownerUid", "==", ownerUid).orderBy("createdAt", "desc").limit(50).get();
   return { reports: snapshot.docs.map((doc) => {
     const data = doc.data();
@@ -235,8 +240,29 @@ export const getMyReports = onCall({ region: "asia-northeast3", enforceAppCheck:
   }) };
 });
 
+export const deleteMyReport = onCall(callableOptions, async (request) => {
+  const uid = await requireUid(request);
+  const reportId = request.data?.reportId;
+  if (typeof reportId !== "string" || !/^[\w-]{1,128}$/.test(reportId)) throw new HttpsError("invalid-argument", "삭제할 신고를 확인해주세요.");
+  const ref = db.collection("reports").doc(reportId);
+  await db.runTransaction(async (transaction) => {
+    assertActiveAccount(await transaction.get(db.collection("users").doc(uid)), request.auth?.token.sessionVersion);
+    const report = await transaction.get(ref);
+    if (!report.exists) return;
+    if (report.get("ownerUid") !== uid) throw new HttpsError("permission-denied", "본인 신고만 삭제할 수 있습니다.");
+    const key = createDedupeKey(dedupeSecret.value(), uid, String(report.get("restaurantId")), String(report.get("mealDateLocal")));
+    const dedupe = db.collection("dedupeKeys").doc(key);
+    const keySnapshot = await transaction.get(dedupe);
+    if (keySnapshot.get("reportId") === reportId) transaction.delete(dedupe);
+    transaction.delete(db.collection("companionObservations").doc(reportId));
+    transaction.delete(ref);
+    recordActivity(transaction, uid, "report_deleted", reportId);
+  });
+  return { ok: true };
+});
+
 export const setReportStatus = onCall({ region: "asia-northeast3", enforceAppCheck: false }, async (request) => {
-  const actorUid = requireAdmin(request);
+  const actorUid = await requireAdmin(request);
   const data = request.data as { reportId?: unknown; status?: unknown; note?: unknown };
   const reportId = typeof data.reportId === "string" ? data.reportId : "";
   const status = typeof data.status === "string" ? data.status : "";
@@ -248,6 +274,7 @@ export const setReportStatus = onCall({ region: "asia-northeast3", enforceAppChe
   await db.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(reportRef);
     if (!snapshot.exists) throw new HttpsError("not-found", "신고를 찾을 수 없습니다.");
+    recordActivity(transaction, String(snapshot.get("ownerUid")), `report_${status}`, reportId, actorUid);
     transaction.update(reportRef, { status, updatedAt: FieldValue.serverTimestamp() });
     transaction.create(auditRef, { actorUid, action: "report_status_changed", reportId, before: snapshot.get("status"), after: status, note, createdAt: FieldValue.serverTimestamp() });
   });
