@@ -88,9 +88,9 @@ export function SiteNavigation() {
   return (
     <header className="site-navigation">
       <div className="site-nav-bar">
-        <NativeLink className="brand" href="/" aria-label="아파요 지도 홈">
-          <span className="brand-mark" aria-hidden="true">아</span>
-          <span>아파요 지도</span>
+        <NativeLink className="brand" href="/" aria-label="나두아파 홈">
+          <span className="brand-mark" aria-hidden="true">나</span>
+          <span>나두아파</span>
         </NativeLink>
 
         <nav className="site-nav-quick" aria-label="주요 메뉴">

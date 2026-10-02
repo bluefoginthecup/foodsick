@@ -1,5 +1,5 @@
-const SHELL_CACHE = "foodsick-shell-v1";
-const SHELL_ASSETS = ["/", "/manifest.webmanifest", "/og.png"];
+const SHELL_CACHE = "nadoapa-shell-v2";
+const SHELL_ASSETS = ["/", "/manifest.webmanifest", "/og-nadoapa.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_ASSETS)));

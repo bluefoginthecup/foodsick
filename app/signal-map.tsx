@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AdmFeature, EmdProperties, SggProperties, SidoProperties } from "admdongkor";
 import { FOOD_CATEGORIES, type FoodCategory } from "./contracts";
-import { publicSignals, SIGNAL_DATA_END, SIGNAL_DATA_START, type PublicSignal } from "./mock-signals";
+import { signalDateRange, sumSignalDetails, type PublicSignal } from "./public-signals";
+import { getFirebasePublicSignals } from "./firebase/report-api";
 import {
   phoneHref,
   regionSelectionKey,
@@ -279,8 +280,8 @@ function SignalCard({ signal }: { signal: PublicSignal }) {
       </div>
       <dl className="signal-stats">
         <div><dt>독립 신고</dt><dd>{signal.independentReports}<small>건</small></dd></div>
-        <div><dt>동행 증상자</dt><dd>{signal.companionSymptoms}<small>명</small></dd></div>
-        <div><dt>병원 방문</dt><dd>{signal.medicalVisits}<small>건</small></dd></div>
+        <div><dt>동행 증상자</dt><dd>{signal.companionSymptoms ?? <small>비공개</small>}{signal.companionSymptoms !== null && <small>명</small>}</dd></div>
+        <div><dt>병원 방문</dt><dd>{signal.medicalVisits ?? <small>비공개</small>}{signal.medicalVisits !== null && <small>건</small>}</dd></div>
       </dl>
       <p className="signal-disclaimer">
         이 신호는 사용자 신고의 증가를 뜻하며 특정 업소의 식중독 발생을 의미하지 않습니다.
@@ -290,11 +291,11 @@ function SignalCard({ signal }: { signal: PublicSignal }) {
 }
 
 function RegionSummaryCard({ region, signals }: { region: string; signals: PublicSignal[] }) {
-  const totals = signals.reduce((sum, signal) => ({
-    independentReports: sum.independentReports + signal.independentReports,
-    companionSymptoms: sum.companionSymptoms + signal.companionSymptoms,
-    medicalVisits: sum.medicalVisits + signal.medicalVisits,
-  }), { independentReports: 0, companionSymptoms: 0, medicalVisits: 0 });
+  const totals = {
+    independentReports: signals.reduce((sum, signal) => sum + signal.independentReports, 0),
+    companionSymptoms: sumSignalDetails(signals, "companionSymptoms"),
+    medicalVisits: sumSignalDetails(signals, "medicalVisits"),
+  };
   const categories = [...new Set(signals.map((signal) => signal.category))];
   const latest = signals.map((signal) => signal.observedAt).sort().at(-1);
 
@@ -312,8 +313,8 @@ function RegionSummaryCard({ region, signals }: { region: string; signals: Publi
       </div>
       <dl className="signal-stats">
         <div><dt>독립 신고</dt><dd>{totals.independentReports}<small>건</small></dd></div>
-        <div><dt>동행 증상자</dt><dd>{totals.companionSymptoms}<small>명</small></dd></div>
-        <div><dt>병원 방문</dt><dd>{totals.medicalVisits}<small>건</small></dd></div>
+        <div><dt>동행 증상자</dt><dd>{totals.companionSymptoms ?? <small>비공개 포함</small>}{totals.companionSymptoms !== null && <small>명</small>}</dd></div>
+        <div><dt>병원 방문</dt><dd>{totals.medicalVisits ?? <small>비공개 포함</small>}{totals.medicalVisits !== null && <small>건</small>}</dd></div>
       </dl>
       <p className="signal-disclaimer">
         {signals.length
@@ -389,16 +390,45 @@ function makeShapes(data: BoundaryData | null, level: MapLevel, selection: Regio
 }
 
 export function SignalMap() {
-  const [startDate, setStartDate] = useState(SIGNAL_DATA_START);
-  const [endDate, setEndDate] = useState(SIGNAL_DATA_END);
+  const [dateRange] = useState(() => signalDateRange());
+  const [startDate, setStartDate] = useState(dateRange.start);
+  const [endDate, setEndDate] = useState(dateRange.end);
+  const [publicSignals, setPublicSignals] = useState<PublicSignal[]>([]);
+  const [signalStatus, setSignalStatus] = useState<"loading" | "loaded" | "error">("loading");
+  const [signalRefresh, setSignalRefresh] = useState(0);
+  const [lastChecked, setLastChecked] = useState("");
   const [category, setCategory] = useState<FoodCategory | "전체">("전체");
   const [level, setLevel] = useState<MapLevel>("sido");
   const [selection, setSelection] = useState<RegionSelection>(EMPTY_SELECTION);
-  const [activeId, setActiveId] = useState(publicSignals[0].id);
+  const [activeId, setActiveId] = useState("");
   const [boundaries, setBoundaries] = useState<BoundaryData | null>(null);
   const [boundaryError, setBoundaryError] = useState(false);
   const [regionQuery, setRegionQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let inFlight = false;
+    const refresh = async () => {
+      if (inFlight || document.visibilityState === "hidden") return;
+      inFlight = true;
+      try {
+        const signals = await getFirebasePublicSignals();
+        if (!cancelled) {
+          setPublicSignals(signals);
+          setSignalStatus("loaded");
+          setLastChecked(new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit" }).format(new Date()));
+        }
+      } catch {
+        if (!cancelled) { setPublicSignals([]); setSignalStatus("error"); }
+      } finally { inFlight = false; }
+    };
+    void refresh();
+    const interval = window.setInterval(() => { void refresh(); }, 60_000);
+    const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { cancelled = true; window.clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
+  }, [signalRefresh]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -419,7 +449,7 @@ export function SignalMap() {
 
   const visibleSignals = useMemo(() => publicSignals.filter((signal) =>
     signal.observedAt >= startDate && signal.observedAt <= endDate
-    && (category === "전체" || signal.category === category)), [category, endDate, startDate]);
+    && (category === "전체" || signal.category === category)), [publicSignals, category, endDate, startDate]);
   const shapes = useMemo(() => makeShapes(boundaries, level, selection, visibleSignals), [boundaries, level, selection, visibleSignals]);
   const bounds = useMemo(() => shapeBounds(shapes), [shapes]);
   const searchIndex = useMemo(() => boundaries ? buildAdministrativeSearchIndex(boundaries) : [], [boundaries]);
@@ -480,13 +510,13 @@ export function SignalMap() {
     <section className="map-section" aria-labelledby="map-title">
       <div className="section-heading">
         <div><p className="eyebrow">행정구역별 위장관 증상 신호</p><h2 id="map-title">지금 모인 신호</h2></div>
-        <span className="live-status"><i aria-hidden="true" /> 행정경계 · 모의 데이터</span>
+        <span className="live-status">{signalStatus === "loaded" ? `실제 신고 집계 · ${lastChecked} 확인` : signalStatus === "error" ? "신호 조회 실패" : "신호 확인 중"}</span>
       </div>
 
       <div className="date-filter" aria-label="조회 기간">
-        <label>시작일<input min={SIGNAL_DATA_START} max={endDate} type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
+        <label>시작일<input min={dateRange.start} max={endDate} type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
         <span aria-hidden="true">→</span>
-        <label>종료일<input min={startDate} max={SIGNAL_DATA_END} type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
+        <label>종료일<input min={startDate} max={dateRange.end} type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
         <small>최근 1년 조회 가능</small>
       </div>
       <div className="filter-strip" aria-label="지도 필터">
@@ -494,7 +524,7 @@ export function SignalMap() {
           <option value="전체">모든 음식 유형</option>
           {FOOD_CATEGORIES.map((item) => <option key={item}>{item}</option>)}
         </select>
-        <span className="result-count">공개 신호 {visibleSignals.length}건</span>
+        <span className="result-count">{signalStatus === "loaded" ? `공개 신호 ${visibleSignals.length}건` : "공개 신호 확인 중"}</span>
       </div>
 
       <div className="region-search">
@@ -544,7 +574,7 @@ export function SignalMap() {
                 const projected = projectedShape(shape, bounds);
                 return (
                   <g
-                    aria-label={`${shape.name}${shape.signalCount ? `, 공개 신호 ${shape.signalCount}건` : ", 공개 신호 없음"}`}
+                    aria-label={`${shape.name}${signalStatus !== "loaded" ? ", 신호 미확인" : shape.signalCount ? `, 공개 신호 ${shape.signalCount}건` : ", 공개 신호 없음"}`}
                     className={shape.signalCount ? "has-signal" : ""}
                     key={shape.id}
                     onClick={() => moveTo(shape)}
@@ -569,7 +599,9 @@ export function SignalMap() {
         </div>
       </div>
 
-      {selection.sido ? <RegionSummaryCard region={selectedRegionLabel(selection)} signals={selectedSignals} /> : activeSignal ? <SignalCard signal={activeSignal} /> : boundaries && <div className="no-signal-card">선택한 기간과 음식 유형에 공개할 수 있는 신호가 없습니다.</div>}
+      {signalStatus === "error" ? <div className="no-signal-card" role="alert"><p>신호를 불러오지 못했습니다. 신고가 없다는 뜻은 아닙니다.</p><button type="button" className="secondary-button" onClick={() => { setSignalStatus("loading"); setSignalRefresh((value) => value + 1); }}>다시 불러오기</button></div>
+        : signalStatus === "loading" ? <div className="no-signal-card" role="status">공개 가능한 신고 신호를 확인하고 있습니다.</div>
+        : selection.sido ? <RegionSummaryCard region={selectedRegionLabel(selection)} signals={selectedSignals} /> : activeSignal ? <SignalCard signal={activeSignal} /> : <div className="no-signal-card">선택한 기간과 음식 유형에 공개할 수 있는 신호가 없습니다. 신고가 전혀 없다는 뜻은 아닙니다.</div>}
 
       <RegionalHelp region={selectedRegion} selection={helpSelection} />
 
@@ -577,9 +609,10 @@ export function SignalMap() {
       <details className="privacy-explainer">
         <summary>어떤 신호가 지도에 공개되나요?</summary>
         <div>
-          <p><strong>서로 다른 계정 3명 이상</strong>이 비슷한 시간대와 증상으로 신고한 후보만 검토합니다.</p>
+          <p>같은 음식점에서 <strong>72시간 이내에 식사한 서로 다른 계정 3명 이상</strong>이 같은 음식 유형과 위장관 증상을 신고하면 공개 기준을 확인합니다.</p>
           <p>같은 음식 유형의 업소가 적으면 <strong>동 → 구 → 시</strong> 순서로 지역을 넓혀 특정 업소를 추측하기 어렵게 만듭니다.</p>
           <p>동행 증상자는 독립 신고 건수에 포함하지 않으며, 작은 세부 수치는 숨길 수 있습니다.</p>
+          <p>음식점과 지역 내 동일 유형 업소 수를 확인할 수 없으면 공개하지 않습니다. 지도는 1분마다 새로 확인하며, 신고 수정·제외는 재집계 후 반영됩니다.</p>
         </div>
       </details>
     </section>

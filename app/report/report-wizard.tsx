@@ -13,6 +13,7 @@ import { useAuth } from "../auth/auth-context";
 import { NativeLink } from "../native-link";
 import { findRestaurantCandidates, type RestaurantCandidate } from "./restaurant-matcher";
 import { useReports, type StoredReport } from "../reports/report-store";
+import { ReportRegionSelect } from "./region-select";
 
 const symptomOptions = ["설사", "구토", "복통", "발열", "오한", "혈변", "두통", "근육통"];
 const steps = ["식사", "증상", "동행", "의료·확인"];
@@ -35,9 +36,9 @@ function emptyCompanion(): CompanionDraft {
 const initialDraft: ReportDraft = {
   mealDate: "",
   mealTime: "",
-  province: "경기도",
-  city: "용인시",
-  district: "기흥구 영덕동",
+  province: "",
+  city: "",
+  district: "",
   restaurantInternalId: "",
   restaurantDisplayInput: "",
   foodCategory: "",
@@ -151,6 +152,8 @@ export function ReportWizard() {
   const [completedReport, setCompletedReport] = useState<StoredReport | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [stepError, setStepError] = useState("");
+  const [searchAttempt, setSearchAttempt] = useState(0);
   const restaurantSearchKey = useMemo(() => [draft.restaurantDisplayInput.trim(), draft.province, draft.city, draft.district].join("|"), [draft.city, draft.district, draft.province, draft.restaurantDisplayInput]);
   const [restaurantSearch, setRestaurantSearch] = useState<{ key: string; status: "idle" | "loading" | "loaded" | "error"; candidates: RestaurantCandidate[]; message: string }>({
     key: "",
@@ -166,11 +169,13 @@ export function ReportWizard() {
 
   useEffect(() => {
     const query = draft.restaurantDisplayInput.trim();
-    if (query.length < 2 || draft.restaurantInternalId) return;
+    if (query.length < 2 || draft.restaurantInternalId || !draft.province || !draft.city || !draft.district) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       setRestaurantSearch({ key: restaurantSearchKey, status: "loading", candidates: [], message: "음식점을 검색하는 중입니다." });
-      const region = [draft.province, draft.city, draft.district].filter(Boolean).join(" ");
+      // Search within the selected city/district: Kakao street addresses use legal
+      // dong names, which may differ from the administrative dong selected above.
+      const region = [...new Set([draft.province, draft.city].filter(Boolean))].join(" ");
       void findRestaurantCandidates(query, region, controller.signal)
         .then((results) => {
           if (!controller.signal.aborted) setRestaurantSearch({ key: restaurantSearchKey, status: "loaded", candidates: results, message: results.length ? "" : "검색 결과가 없습니다." });
@@ -183,7 +188,7 @@ export function ReportWizard() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [draft.city, draft.district, draft.province, draft.restaurantDisplayInput, draft.restaurantInternalId, restaurantSearchKey]);
+  }, [draft.city, draft.district, draft.province, draft.restaurantDisplayInput, draft.restaurantInternalId, restaurantSearchKey, searchAttempt]);
 
   /* The report store is restored after hydration, so edit data must be applied afterwards. */
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -202,6 +207,16 @@ export function ReportWizard() {
 
   const patch = <K extends keyof ReportDraft>(key: K, value: ReportDraft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
+    setStepError("");
+  };
+
+  const nextStep = () => {
+    if (step === 0 && (!draft.mealDate || !draft.mealTime || !draft.province || !draft.city || !draft.district || !draft.restaurantInternalId || !draft.foodCategory || !draft.serviceMode)) {
+      setStepError("식사 날짜·시간, 지역, 음식점, 음식 유형과 이용 방식을 선택해주세요.");
+      return;
+    }
+    setStepError("");
+    setStep((current) => Math.min(steps.length - 1, current + 1));
   };
 
   const setCompanionCount = (value: number) => {
@@ -322,7 +337,7 @@ export function ReportWizard() {
     <main className="report-page">
       <header className="report-header">
         <NativeLink className="back-link" href="/">← 나가기</NativeLink>
-        <span>체험 신고</span>
+        <span>{firebaseMode ? "증상 신고" : "체험 신고"}</span>
       </header>
 
       <ol className="stepper" aria-label="신고 진행 단계">
@@ -350,26 +365,32 @@ export function ReportWizard() {
               <label>식사 날짜<input required type="date" value={draft.mealDate} onChange={(e) => patch("mealDate", e.target.value)} /></label>
               <label>식사 시간<input required type="time" value={draft.mealTime} onChange={(e) => patch("mealTime", e.target.value)} /></label>
             </div>
-            <div className="field-row region-row">
-              <label>시/도<input value={draft.province} onChange={(e) => patch("province", e.target.value)} /></label>
-              <label>시/군/구<input value={draft.city} onChange={(e) => patch("city", e.target.value)} /></label>
-            </div>
-            <label>읍/면/동<input value={draft.district} onChange={(e) => patch("district", e.target.value)} /></label>
+            <ReportRegionSelect value={draft} onChange={(region) => setDraft((current) => ({ ...current, ...region, restaurantInternalId: "", restaurantDisplayInput: "" }))} />
 
             <div className="restaurant-search">
-              <label>음식점 상호명
+              <label htmlFor="restaurant-query">음식점 찾기</label>
+              <p className="restaurant-search-help" id="restaurant-search-help">{draft.district ? "선택한 시·군·구에서 검색합니다. 상호를 두 글자 이상 입력하고 결과에서 음식점을 선택해주세요." : "위에서 식사한 지역을 먼저 선택해주세요."}</p>
+              <div className="restaurant-search-control">
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" strokeWidth="2" /><path d="m15 15 6 6" stroke="currentColor" strokeWidth="2" /></svg>
                 <input
+                  id="restaurant-query"
+                  aria-describedby="restaurant-search-help"
+                  aria-controls="restaurant-results"
+                  disabled={!draft.province || !draft.city || !draft.district}
                   autoComplete="off"
-                  placeholder="예: 교동면옥 용인영덕점"
+                  placeholder="음식점 이름을 검색하세요"
+                  type="search"
                   value={draft.restaurantDisplayInput}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); patch("restaurantInternalId", ""); setSearchAttempt((n) => n + 1); } }}
                   onChange={(e) => {
                     patch("restaurantDisplayInput", e.target.value);
                     patch("restaurantInternalId", "");
                   }}
                 />
-              </label>
+                <button type="button" disabled={!draft.district || draft.restaurantDisplayInput.trim().length < 2} onClick={() => { patch("restaurantInternalId", ""); setSearchAttempt((n) => n + 1); }}>검색</button>
+              </div>
               {candidates.length > 0 && !draft.restaurantInternalId && (
-                <div className="candidate-list" role="listbox" aria-label="음식점 검색 결과">
+                <div className="candidate-list" id="restaurant-results" role="listbox" aria-label="음식점 검색 결과">
                   {candidates.map((candidate) => (
                     <button
                       aria-selected="false"
@@ -384,16 +405,17 @@ export function ReportWizard() {
                       role="option"
                       type="button"
                     >
-                      <strong>{candidate.name}</strong>
+                      <strong>{candidate.name}<span className="candidate-select-label">선택</span></strong>
                       <span>{candidate.address} · {candidate.categoryLabel || candidate.category}{candidate.phone ? ` · ${candidate.phone}` : ""}</span>
                     </button>
                   ))}
                 </div>
               )}
-              {draft.restaurantInternalId && <p className="matched-note">✓ 지도 장소와 내부 연결됨 · 외부에는 공개되지 않아요</p>}
+              {draft.restaurantInternalId && <p className="matched-note">✓ {draft.restaurantInternalId.startsWith("manual_") ? "직접 입력됨 · 장소 확인 후 집계됩니다" : "음식점 선택 완료 · 외부에는 공개되지 않아요"}</p>}
               {!draft.restaurantInternalId && activeRestaurantSearch.status === "loading" && <p className="restaurant-search-status">카카오 장소에서 음식점을 검색하는 중입니다.</p>}
               {!draft.restaurantInternalId && activeRestaurantSearch.status === "error" && <p className="restaurant-search-status error">{activeRestaurantSearch.message}</p>}
-              {!draft.restaurantInternalId && draft.restaurantDisplayInput.trim().length >= 2 && (
+              {!draft.restaurantInternalId && activeRestaurantSearch.status === "loaded" && candidates.length === 0 && <p className="restaurant-search-status" role="status">검색 결과가 없습니다. 지역이나 상호명을 다시 확인해주세요.</p>}
+              {!draft.restaurantInternalId && draft.district && draft.restaurantDisplayInput.trim().length >= 2 && activeRestaurantSearch.status === "loaded" && (
                 <button className="manual-place" onClick={() => patch("restaurantInternalId", `manual_${Date.now()}`)} type="button">목록에 없으면 이 상호명으로 직접 입력</button>
               )}
             </div>
@@ -518,7 +540,7 @@ export function ReportWizard() {
             <label className="consent-check"><input checked={consented} onChange={(event) => setConsented(event.target.checked)} type="checkbox" /> <span>건강 관련 정보가 민감정보임을 확인했으며, 신고 분석 목적으로 처리하는 데 동의합니다. <small>실제 운영 전 동의문과 보유기간을 법률 검토합니다.</small></span></label>
             <button
               className="submit-preview"
-              disabled={submitting || !consented || !draft.restaurantInternalId || !draft.mealDate || !draft.mealTime || draft.symptoms.length === 0}
+              disabled={submitting || !consented || !draft.province || !draft.city || !draft.district || !draft.restaurantInternalId || !draft.mealDate || !draft.mealTime || draft.symptoms.length === 0}
               onClick={() => void submitReport()}
               type="button"
             >
@@ -530,8 +552,9 @@ export function ReportWizard() {
 
         <div className="wizard-actions">
           <button className="secondary-button" disabled={step === 0} onClick={() => setStep((current) => Math.max(0, current - 1))} type="button">이전</button>
-          {step < steps.length - 1 && <button className="primary-button" onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))} type="button">다음</button>}
+          {step < steps.length - 1 && <button className="primary-button" onClick={nextStep} type="button">다음</button>}
         </div>
+        {stepError && <p className="form-error" role="alert">{stepError}</p>}
       </form>
     </main>
   );

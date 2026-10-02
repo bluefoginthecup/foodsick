@@ -1,4 +1,4 @@
-# 아파요 지도
+# 나두아파
 
 음식점 이름과 정확한 위치를 공개하지 않고, 지역별 위장관 증상 신고 증가를 살펴보는 모바일 우선 PWA MVP다. 특정 업소의 식중독 발생을 판정하거나 안전도를 평가하지 않는다.
 
@@ -19,7 +19,21 @@
 - Firestore 원자적 중복 방지, 사용자별 요청 제한, 관리자 감사기록
 - Firebase 웹 클라이언트와 서울 리전 Callable Functions 연결 어댑터
 
-Firebase 프로젝트 `foodsick-signal-map-kr`와 웹 클라이언트 설정은 연결되어 있다. 화면의 인증과 신고 저장은 Kakao OAuth와 App Check 키가 준비되기 전까지 브라우저 세션 체험 모드로 동작한다. 운영 전에는 두 설정을 완료하고 `NEXT_PUBLIC_AUTH_MODE=firebase`로 전환해야 한다.
+Firebase 프로젝트 `foodsick-signal-map-kr`의 운영 설정은 `NEXT_PUBLIC_AUTH_MODE=firebase`다. 카카오 로그인과 신고 저장을 사용하며, 공개 지도는 실제 서버 집계를 조회한다. App Check 클라이언트는 연결되어 있지만 기존 Callable Functions의 서버 강제 검증은 별도 운영 과제로 남아 있다.
+
+## 실제 신고의 공개 반영
+
+- `syncReportSignals`가 신고 생성·수정·삭제·상태 변경을 감지하고 이전/새 음식점 양쪽을 재집계한다.
+- 같은 장소 ID와 음식 유형, 72시간 식사 구간, 서로 다른 계정 3명 이상, 위장관 증상을 요구한다. 동행자는 독립 신고로 세지 않는다.
+- 카카오 장소 ID를 다시 확인하고 행정구역 안의 같은 음식 유형 업소를 최소 3곳 확인한 뒤 동→구→시로 공개 범위를 결정한다. 자유 입력 장소·기타/배달음식처럼 확인이 불충분한 경우 공개하지 않는다.
+- 공개 API는 지역·음식 유형·날짜·집계 수치만 허용한다. 음식점/사용자/신고 ID와 좌표는 반환하지 않고, 세부 수치 3 미만은 비공개로 유지한다.
+- 변경 도중 오래된 집계가 덮어쓰지 않도록 트랜잭션 안에서 원본 버전을 재확인한다. 같은 이벤트가 반복되어도 공개 문서는 중복 생성되지 않는다.
+- `reconcilePublicSignals`는 6시간마다 기존 자료 및 누락 이벤트를 재확인한다. 한 번에 음식점 100개, 최대 450초를 처리하고 다음 실행에서 이어간다. 공개 확인 근거는 24시간 후 만료되며 검증에 실패한 신호는 숨긴다.
+- 한 음식점의 최근 1년 신고가 2,000건 또는 후보가 150개를 넘으면 부분 집계 대신 공개를 보류하고 `signalPublicationState`에 검토 상태를 남긴다.
+- 공개 지도는 최근 365일을 조회하고, 보이는 탭에서 1분마다 갱신한다. 조회 오류와 공개 신호 없음은 별도로 표시한다.
+- 신고 지역 목록은 지도와 같은 `admdongkor` 20260701 자료를 압축한 `public/administrative-regions.json`이다. 갱신은 `node scripts/build-region-options.mjs`로 수행한다.
+
+브랜드는 **나두아파**이며 기존 Firebase 주소는 유지한다. 공유 이미지는 내장 이미지 편집 도구로 기존 이미지의 ‘아파요 지도’만 ‘나두아파’로 교체했다. 최종 프롬프트: “Replace ONLY the large Korean brand text '아파요 지도' with exact text '나두아파'. Keep the smaller line '나만 아픈 걸까?' and all other artwork unchanged.” 결과 파일은 `public/og-nadoapa.png`다.
 
 ## 실행과 검증
 

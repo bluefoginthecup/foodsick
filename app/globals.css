@@ -322,6 +322,17 @@ button { color: inherit; }
 .yes-no { grid-template-columns: 1fr 1fr; }
 .compact-field { margin: 0; }
 .restaurant-search { position: relative; }
+.restaurant-search-help { margin: -10px 0 12px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.restaurant-search-control { display: flex; align-items: center; gap: 10px; margin: 0 0 20px; padding: 6px 6px 6px 15px; background: white; border: 2px solid var(--forest); border-radius: 14px; }
+.restaurant-search-control svg { flex-shrink: 0; color: var(--forest); }
+.restaurant-search-control input { min-width: 0; width: 100%; padding: 10px 0; border: 0; background: transparent; font-size: 16px; }
+.restaurant-search-control:focus-within { outline: 3px solid var(--mint); outline-offset: 2px; }
+.restaurant-search-control button { flex-shrink: 0; min-height: 44px; padding: 10px 20px; border: 0; border-radius: 9px; background: var(--forest); color: white; font-size: 15px; font-weight: 700; cursor: pointer; }
+.restaurant-search-control button:disabled { opacity: .45; cursor: default; }
+.report-region-select select:disabled { color: var(--muted); background: #f1f2ef; }
+.region-load-error { margin: -8px 0 20px; color: #873924; font-size: 14px; }
+.region-load-error button { color: inherit; background: none; border: 0; text-decoration: underline; cursor: pointer; }
+.candidate-select-label { float: right; margin-left: 10px; color: var(--forest); font-size: 14px; }
 .candidate-list { display: grid; gap: 2px; margin: -13px 0 20px; padding: 5px; background: white; border: 1px solid var(--line); border-radius: 15px; box-shadow: 0 14px 30px rgba(28,50,42,.13); }
 .candidate-list button { display: grid; gap: 4px; padding: 12px; background: transparent; border: 0; border-radius: 10px; text-align: left; cursor: pointer; }
 .candidate-list button:hover { background: #f3f5ef; }

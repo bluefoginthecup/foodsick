@@ -3,9 +3,11 @@
 import { httpsCallable } from "firebase/functions";
 import type { ReportDraft, ReportStatus } from "../contracts";
 import { getFirebaseClient } from "./client";
+import { parsePublicSignals, type PublicSignal } from "../public-signals";
 
 type ReportOutcome = { outcome: "created" | "duplicate" | "updated"; reportId: string };
-type PublicSignalResponse = { signals: Array<Record<string, unknown>> };
+type SignalCursor = { id: string; seconds: number; nanoseconds: number };
+type PublicSignalResponse = { signals: unknown; nextCursor?: SignalCursor | null };
 export type FirebaseStoredReport = {
   id: string;
   ownerUid: string;
@@ -42,8 +44,16 @@ export async function getFirebaseReports() {
 }
 
 export async function getFirebasePublicSignals() {
-  const call = httpsCallable<Record<string, never>, PublicSignalResponse>(functionsClient(), "getPublicSignals");
-  return (await call({})).data.signals;
+  const call = httpsCallable<{ cursor?: SignalCursor }, PublicSignalResponse>(functionsClient(), "getPublicSignals");
+  const signals = new Map<string, PublicSignal>();
+  let cursor: SignalCursor | undefined;
+  for (let page = 0; page < 50; page++) {
+    const { data } = await call(cursor ? { cursor } : {});
+    for (const signal of parsePublicSignals(data.signals)) signals.set(signal.id, signal);
+    if (!data.nextCursor) return [...signals.values()].sort((a, b) => b.observedAt.localeCompare(a.observedAt));
+    cursor = data.nextCursor;
+  }
+  throw new Error("신호가 많아 전체 조회를 마치지 못했습니다. 잠시 후 다시 시도해주세요.");
 }
 
 export async function setFirebaseReportStatus(reportId: string, status: ReportStatus, note: string) {

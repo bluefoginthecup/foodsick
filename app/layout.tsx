@@ -10,25 +10,25 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:5173";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "아파요 지도 | 위장관 증상 조기 신호",
+  title: "나두아파 | 위장관 증상 조기 신호",
   description:
     "음식점 이름을 공개하지 않고 지역별 위장관 증상 신고 증가를 살펴보는 시민 참여 지도",
   manifest: "/manifest.webmanifest",
-  applicationName: "아파요 지도",
+  applicationName: "나두아파",
   icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "아파요 지도",
+    title: "나두아파",
   },
   openGraph: {
-    title: "나만 아픈 걸까? | 아파요 지도",
+    title: "나만 아픈 걸까? | 나두아파",
     description: "음식점을 공개하지 않고 지역별 위장관 증상 신고 증가를 살펴보는 시민 참여 지도",
-    images: [{ url: "/og.png", width: 1536, height: 1024, alt: "나만 아픈 걸까? 아파요 지도" }],
+    images: [{ url: "/og-nadoapa.png", width: 1536, height: 1024, alt: "나만 아픈 걸까? 나두아파" }],
     locale: "ko_KR",
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: ["/og.png"] },
+  twitter: { card: "summary_large_image", images: ["/og-nadoapa.png"] },
 };
 
 export const viewport: Viewport = {
