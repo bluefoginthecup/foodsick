@@ -68,6 +68,12 @@ export async function getFirebasePublicSignals() {
   throw new Error("신호가 많아 전체 조회를 마치지 못했습니다. 잠시 후 다시 시도해주세요.");
 }
 
+export async function getFirebaseReportHistory() {
+  const call = httpsCallable<Record<string,never>, {signals:unknown[];recent:unknown[]}>(functionsClient(), "getPublicReportHistory");
+  const {data} = await call({});
+  return {signals:parsePublicSignals(data.signals, true),recent:parsePublicSignals(data.recent)};
+}
+
 export async function setFirebaseReportStatus(reportId: string, status: ReportStatus, note: string) {
   const call = httpsCallable<{ reportId: string; status: ReportStatus; note: string }, { ok: boolean }>(functionsClient(), "setReportStatus");
   return (await call({ reportId, status, note })).data.ok;

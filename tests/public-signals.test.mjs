@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { parsePublicSignals, signalDateRange, sumSignalDetails, summarizeSignalDetail } from "../app/public-signals.ts";
+import { parsePublicSignals, signalDateRange, sumSignalDetails, summarizeSignalDetail, recentConcentrations } from "../app/public-signals.ts";
+
+test('recent notices expire after seven Korean calendar days and use one latest case per region and category',()=>{
+ const base={region:'영덕1동',category:'냉면',independentReports:3,mealStartDate:'2026-09-26',mealEndDate:'2026-09-27'};
+ assert.equal(recentConcentrations([base],new Date('2026-10-02T14:59:59Z')).length,1);
+ assert.equal(recentConcentrations([base],new Date('2026-10-02T15:00:00Z')).length,0);
+ const latest={...base,mealStartDate:'2026-10-01',mealEndDate:'2026-10-02'};
+ assert.deepEqual(recentConcentrations([base,latest],new Date('2026-10-02T03:00:00Z')),[latest]);
+});
 
 test('regional health totals preserve known values without treating small or unknown groups as zero', () => {
   assert.deepEqual(summarizeSignalDetail([{outpatientVisits:0}], 'outpatientVisits'), {known:0,smallGroups:0,unknown:false});

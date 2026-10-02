@@ -7,6 +7,7 @@ import { NativeLink } from "../native-link";
 import { resourceTypes } from "./data";
 import { deletePost, listPosts, reviewPost, type PostScope, type ResourcePost } from "./api";
 import { PostEditor } from "./post-editor";
+import { AttachmentList } from "./attachment-list";
 
 const statusLabels = { pending: "승인 대기", approved: "공개", rejected: "반려·비공개" };
 function errorText(error: unknown) { return error instanceof Error ? error.message : "요청을 처리하지 못했습니다. 다시 시도해주세요."; }
@@ -93,7 +94,7 @@ function ResourceBoard({ admin }: { admin: boolean }) {
     </div>
     {text(message && <p className="resource-notice" role="status">{text(message)}</p>)}
     {text(error && <div className="resource-error" role="alert"><p>{text(error)}</p><button type="button" disabled={loading || busy} onClick={() => setRefresh(n => n + 1)}>{t("다시 불러오기")}</button></div>)}
-    {text(editor && user && <PostEditor key={editor === "new" ? `new-${identity}` : `${editor.id}-${editor.revision}`} post={editor === "new" ? undefined : editor} admin={isAdmin} onCancel={() => setEditor(null)} onSaved={(published) => { setEditor(null); setMessage(published ? "게시글을 공개했습니다." : "승인을 요청했습니다. 내 게시글에서 진행 상태를 확인하세요."); setScope(isAdmin ? "admin" : "mine"); setRefresh(n => n + 1); }} />)}
+    {text(editor && user && <PostEditor key={editor === "new" ? `new-${identity}` : `${editor.id}-${editor.revision}`} post={editor === "new" ? undefined : editor} admin={isAdmin} onBusy={setBusy} onCancel={() => setEditor(null)} onSaved={(published) => { setEditor(null); setMessage(published ? "게시글을 공개했습니다." : "승인을 요청했습니다. 내 게시글에서 진행 상태를 확인하세요."); setScope(isAdmin ? "admin" : "mine"); setRefresh(n => n + 1); }} />)}
     {text(permitted && <section className="resource-browser" aria-labelledby={admin ? "admin-resource-list" : "resource-list"}>
       <h2 id={admin ? "admin-resource-list" : "resource-list"}>{text(scope === "public" ? "공개 자료" : scope === "mine" ? "내 게시글" : "승인·게시글 관리")}</h2>
       <label className="resource-search" htmlFor={admin ? "admin-resource-search" : "resource-search"}>{t("불러온 글에서 검색")}<input id={admin ? "admin-resource-search" : "resource-search"} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={t("제목, 출처, 주제 검색")} /></label>
@@ -103,7 +104,7 @@ function ResourceBoard({ admin }: { admin: boolean }) {
       {text(!loading && !error && !visible.length && <div className="resource-empty"><h3>{text(safePosts.length ? "조건에 맞는 글이 없어요" : scope === "public" ? "아직 공개된 자료가 없어요" : "등록된 게시글이 없어요")}</h3><p>{text(safePosts.length ? "검색어와 필터를 바꾸거나 다음 글을 불러와보세요." : "자료를 올려 함께 채워주세요. 관리자가 확인한 뒤 공개됩니다.")}</p></div>)}
       <div className="resource-board-list">{text(visible.map(post => <article className="resource-board-post" key={post.id}>
         <details><summary><div className="resource-card-meta"><span>{text(post.type)}</span>{text(post.status && <span>{text(statusLabels[post.status])}</span>)}</div><h3>{post.title}</h3><p>{post.source} · {post.language}{text(post.year && ` · ${post.year} 발행`)}</p><small>{text(post.createdAt.slice(0, 10))}{t(" 등록 · 내용 펼치기")}</small></summary>
-          <div className="resource-post-body">{text(post.originalTitle && <p className="resource-original">{post.originalTitle}</p>)}<p className="resource-description">{post.description}</p>{text(post.takeaway && <div className="resource-takeaway"><strong>{t("이렇게 참고하세요")}</strong><p>{post.takeaway}</p></div>)}<ul className="resource-tags" aria-label={t("주제")}>{text(post.tags.map(tag => <li key={tag}>{tag}</li>))}</ul><a className="resource-link" href={post.url} target="_blank" rel="noopener noreferrer">{t("원문 보기 ")}<span>{t("새 탭 ↗")}</span></a>{text(post.reviewNote && <p className="resource-notice"><strong>{t("관리자 메모")}</strong><br />{post.reviewNote}</p>)}</div>
+          <div className="resource-post-body">{text(post.originalTitle && <p className="resource-original">{post.originalTitle}</p>)}<p className="resource-description">{post.description}</p>{text(post.takeaway && <div className="resource-takeaway"><strong>{t("이렇게 참고하세요")}</strong><p>{post.takeaway}</p></div>)}<ul className="resource-tags" aria-label={t("주제")}>{text(post.tags.map(tag => <li key={tag}>{tag}</li>))}</ul>{post.url && <a className="resource-link" href={post.url} target="_blank" rel="noopener noreferrer">{t("원문 보기 ")}<span>{t("새 탭 ↗")}</span></a>}<AttachmentList postId={post.id} files={post.attachments ?? []} />{text(post.reviewNote && <p className="resource-notice"><strong>{t("관리자 메모")}</strong><br />{post.reviewNote}</p>)}</div>
         </details>
         {text(scope !== "public" && <div className="resource-post-actions"><button type="button" disabled={busy} onClick={() => setEditor(post)}>{t("수정")}</button><button type="button" disabled={busy} onClick={() => setDeleting(post)}>{t("삭제")}</button>{text(scope === "admin" && <button type="button" disabled={busy} onClick={() => { setReviewing(post); setNote(""); }}>{t("승인·반려 검토")}</button>)}</div>)}
         {text(deleting?.id === post.id && <div className="resource-confirm" role="group" aria-label={t("삭제 확인")}><p>“{post.title}{t("” 글을 삭제할까요? 삭제 후 복구할 수 없습니다.")}</p><button type="button" disabled={busy} onClick={() => void mutate(() => deletePost(post), "게시글을 삭제했습니다.")}>{t("삭제 확정")}</button><button type="button" disabled={busy} onClick={() => setDeleting(null)}>{t("취소")}</button></div>)}
@@ -116,3 +117,4 @@ function ResourceBoard({ admin }: { admin: boolean }) {
     <aside className="resource-note"><h2>{t("함께 지키는 자료실 원칙")}</h2><p>{t("출처와 원문 주소를 함께 올려주세요. 개인정보나 특정 음식점을 지목하는 내용은 올리지 말아주세요. 회원이 공개된 글을 수정하면 다시 승인 대기로 바뀌며, 재승인 전까지 공개되지 않습니다. 관리자의 승인은 자료 공유를 위한 검토이며 의학적 사실의 보증은 아닙니다.")}</p><NativeLink href="/law-help">{t("피해 이후 대응·판례·상담처 보기 ↗")}</NativeLink></aside>
   </section>;
 }
+

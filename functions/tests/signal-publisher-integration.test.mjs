@@ -51,6 +51,7 @@ const hash = (s) => createHash("sha256").update(s).digest("hex");
 function seed() {
   documents.clear();
   const now = Date.now();
+  put(`signalPrivacyChecks/${hash("kakao_200:냉면")}`, {region:null,expiresAt:Timestamp.fromMillis(now+3600_000)});
   for (const id of ["one", "two", "three"]) put(`users/${id}`, {status:"active",provider:"kakao"});
   for (const id of ["one", "two", "three"]) put(`reports/${id}`, {
     ownerUid: id, restaurantId: "kakao_100", foodCategory: "냉면", status: "submitted", symptoms: ["설사"],
@@ -60,6 +61,18 @@ function seed() {
   put(`signalPrivacyChecks/${hash("kakao_100:냉면")}`, { region: { sido: "경기도", city: "용인시", district: "기흥구", dong: "", code: "41463", level: "gu", sameCategoryVenueCount: 3 }, expiresAt: Timestamp.fromMillis(now + 3600_000) });
 }
 const publicDocs = () => [...documents.keys()].filter((path) => path.startsWith("publicSignals/"));
+
+test('isolated history survives below alert threshold, and deletions withdraw its contribution', async () => {
+  seed(); documents.delete('reports/two'); documents.delete('reports/three');
+  await rebuildRestaurantSignals('kakao_100');
+  assert.equal(publicDocs().length,0);
+  const path=`reportHistoryContributions/${hash('kakao_100')}`;
+  assert.equal(documents.get(path).data.rows[0].count,1);
+  assert.deepEqual(documents.get(path).data.recent,[]);
+  documents.delete('reports/one');
+  await rebuildRestaurantSignals('kakao_100');
+  assert.deepEqual(documents.get(path).data.rows,[]);
+});
 
 test("publication is idempotent and an excluded report withdraws the existing signal", async () => {
   seed();

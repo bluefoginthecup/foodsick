@@ -25,6 +25,7 @@ const menuGroups = [
     label: "기관·의료",
     description: "선택 지역의 도움받을 곳을 찾아요",
     links: [
+      { href: "/food-poisoning", label: "식중독 증상·대처 안내" },
       { href: "/#regional-help", label: "관할기관·주변 의료" },
       { href: "tel:119", label: "긴급할 때 119" },
     ],

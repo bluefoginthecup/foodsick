@@ -6,7 +6,7 @@ import { NativeLink } from "./native-link";
 const foundations = [
   "음식점 이름과 정확한 위치는 공개하지 않아요",
   "증상 신고는 진단이나 업소 평가가 아니에요",
-  "공개 지도에는 충분히 모인 비식별 신호만 보여요",
+  "공개 지도에는 위치를 확인한 비식별 신고 이력을 보여요",
 ];
 
 export default function Home() {

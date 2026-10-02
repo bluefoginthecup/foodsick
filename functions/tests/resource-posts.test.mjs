@@ -33,7 +33,14 @@ mock.module("../lib/firebase.js", { namedExports: { db: {
     writes.forEach(write => write()); return result;
   },
 } } });
-const { saveResourcePost: save, listResourcePosts: list, reviewResourcePost: review, deleteResourcePost: remove } = await import("../lib/resource-posts.js");
+const fileBytes = new Map();
+let afterPut;
+mock.module("../lib/resource-file-store.js", { namedExports: {
+  putResourceFile: async (postId, fileId, bytes) => { fileBytes.set(`${postId}/${fileId}`, bytes); afterPut?.(); },
+  readResourceFile: async (postId, fileId) => fileBytes.get(`${postId}/${fileId}`),
+  removeResourceFile: async (postId, fileId) => { fileBytes.delete(`${postId}/${fileId}`); },
+} });
+const { saveResourcePost: save, listResourcePosts: list, reviewResourcePost: review, deleteResourcePost: remove, downloadResourceAttachment: download } = await import("../lib/resource-posts.js");
 const alice = { uid: "alice", token: {} };
 const bob = { uid: "bob", token: {} };
 const admin = { uid: "admin", token: { role: "admin" } };
@@ -41,7 +48,7 @@ const draft = { type: "논문·연구", language: "한국어", title: "시민 �
 const saveData = (revision = 0) => ({ id: "post-1", revision, draft });
 const post = () => records.get("resourcePosts/post-1");
 const code = expected => error => error.code === expected;
-beforeEach(() => { records.clear(); for (const uid of ["alice", "bob", "admin"]) records.set(`users/${uid}`, {}); });
+beforeEach(() => { records.clear(); fileBytes.clear(); afterPut = undefined; for (const uid of ["alice", "bob", "admin"]) records.set(`users/${uid}`, {}); });
 
 test("members cannot forge publication, ownership, or moderation permissions", async () => {
   await assert.rejects(save.run({ data: saveData() }), code("unauthenticated"));
@@ -119,4 +126,44 @@ test("member daily posting limit does not block edits or own deletion", async ()
   await save.run({ auth: alice, data: saveData(1) });
   await remove.run({ auth: alice, data: { id: "post-1", revision: 2 } });
   assert.equal(post(), undefined);
+});
+
+const pdf = { name: "자료.pdf", base64: Buffer.from("%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF").toString("base64") };
+test("attachments stay private until approval and old download requests stop working after edits", async () => {
+  await save.run({ auth: alice, data: { ...saveData(), draft: { ...draft, url: "" }, attachments: [pdf] } });
+  const file = post().attachments[0];
+  const data = { postId: "post-1", fileId: file.id };
+  assert.equal(file.size, Buffer.from(pdf.base64, "base64").length);
+  await assert.rejects(download.run({ data }), code("unauthenticated"));
+  await assert.rejects(download.run({ auth: bob, data }), code("permission-denied"));
+  assert.equal((await download.run({ auth: alice, data })).base64, pdf.base64);
+  assert.equal((await download.run({ auth: admin, data })).base64, pdf.base64);
+  await review.run({ auth: admin, data: { id: "post-1", revision: 1, status: "approved" } });
+  assert.equal((await download.run({ data })).base64, pdf.base64);
+  const publicFile = (await list.run({ data: {} })).posts[0].attachments[0];
+  assert.deepEqual(Object.keys(publicFile).sort(), ["extension", "id", "name", "size"]);
+  await save.run({ auth: alice, data: { ...saveData(2), attachments: [{ id: file.id }] } });
+  await assert.rejects(download.run({ data }), code("unauthenticated"));
+  await save.run({ auth: alice, data: { ...saveData(3), attachments: [] } });
+  await assert.rejects(download.run({ auth: alice, data }), code("not-found"));
+});
+
+test("cannot attach other posts' files or forged metadata; legacy saves preserve files", async () => {
+  await save.run({ auth: alice, data: { ...saveData(), attachments: [pdf] } });
+  const original = post().attachments[0];
+  await assert.rejects(save.run({ auth: bob, data: { ...saveData(), id: "post-bob", attachments: [{ id: original.id, name: "forged.pdf", size: 1 }] } }), code("invalid-argument"));
+  await save.run({ auth: alice, data: saveData(1) });
+  assert.deepEqual(post().attachments, [original]);
+  await assert.rejects(save.run({ auth: alice, data: { ...saveData(2), attachments: [{ id: original.id }, { id: original.id }] } }), code("invalid-argument"));
+  await assert.rejects(save.run({ auth: alice, data: { ...saveData(2), draft: { ...draft, url: "" }, attachments: [] } }), code("invalid-argument"));
+  assert.equal(post().revision, 2);
+});
+
+test("failed concurrent attachment saves remove only newly uploaded unreferenced files", async () => {
+  await save.run({ auth: alice, data: { ...saveData(), attachments: [pdf] } });
+  const first = post().attachments[0];
+  afterPut = () => records.set("resourcePosts/post-1", { ...post(), revision: 2 });
+  await assert.rejects(save.run({ auth: alice, data: { ...saveData(1), attachments: [{ id: first.id }, pdf] } }), code("aborted"));
+  assert.equal(fileBytes.size, 1);
+  assert.ok(fileBytes.has(`post-1/${first.id}`));
 });

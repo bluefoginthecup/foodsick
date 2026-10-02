@@ -85,9 +85,9 @@ test("renders the Korean mobile-first foundation", async () => {
   assert.match(html, /법률지원/);
   assert.match(html, /관리자 검토실/);
   assert.match(html, /음식점 이름과 정확한 위치는 공개하지 않아요/);
-  assert.match(html, /지금 모인 신호/);
+  assert.match(html, /기간별 신고 이력/);
   assert.match(html, /나두아파/);
-  assert.match(html, /신호 확인 중/);
+  assert.match(html, /신고 이력 확인 중/);
   assert.doesNotMatch(html, /모의 데이터|signal-yongin|아파요 지도/);
   assert.match(html, /최근 1년 조회 가능/);
   assert.match(html, /대한민국 행정구역 경계 지도/);

@@ -11,6 +11,7 @@ import { kakaoClient, verifyVenuePrivacy } from "./domain/venue-privacy.js";
 import { registeredVenueEvidence } from "./venue-evidence.js";
 import { scopedInputs } from "./signal-inputs.js";
 import { evaluateSignals } from "./domain/signal-evaluation.js";
+import { historyRows } from "./domain/report-history.js";
 
 const kakaoSecret = defineSecret("KAKAO_REST_API_KEY");
 const idSecret = defineSecret("DEDUPE_HMAC_SECRET");
@@ -33,7 +34,7 @@ export async function rebuildRestaurantSignals(restaurantId: string) {
   const safeCandidates = overflow ? [] : candidates;
   const regions = new Map<string, { region: SafeRegion | null; expiresAt: Timestamp }>();
   let verificationFailed = false;
-  for (const category of new Set(safeCandidates.map((item) => item.foodCategory))) {
+  for (const category of new Set((overflow ? [] : inputs).map((item) => item.foodCategory))) {
     const cacheRef = db.collection("signalPrivacyChecks").doc(hash(`${restaurantId}:${category}`));
     const registered = await registeredVenueEvidence(restaurantId,category);
     if(registered !== undefined){
@@ -62,6 +63,9 @@ export async function rebuildRestaurantSignals(restaurantId: string) {
 
   const stateRef = db.collection("signalPublicationState").doc(hash(restaurantId));
   const evaluated = evaluateSignals(overflow ? [] : inputs, new Map([...regions].map(([key,value]) => [key,value.region])), candidateId => createHmac("sha256", idSecret.value()).update(`signal-v1:${candidateId}`).digest("hex"));
+  const today = new Date(now + 9 * 3600000).toISOString().slice(0,10);
+  const recentStart = Date.parse(`${today}T00:00:00+09:00`) - 6 * 86400000;
+  const recent = evaluateSignals(overflow ? [] : inputs.filter(r => Date.parse(r.mealAt) >= recentStart), new Map([...regions].map(([key,value]) => [key,value.region])), candidateId => createHmac("sha256", idSecret.value()).update(`recent-v1:${candidateId}`).digest("hex")).signals;
   const publications = evaluated.signals.map(signal => ({ ...signal,
     validUntil: Timestamp.fromMillis(Math.min(regions.get(signal.category)!.expiresAt.toMillis(), Date.parse(`${signal.observedAt}T00:00:00+09:00`) + YEAR)),
     generatedAt: FieldValue.serverTimestamp(), schemaVersion: 3,
@@ -74,6 +78,12 @@ export async function rebuildRestaurantSignals(restaurantId: string) {
     const previousIds: string[] = previous.get("publicIds") ?? [];
     for (const id of previousIds) if (!nextIds.has(id)) transaction.delete(db.collection("publicSignals").doc(id));
     for (const publication of publications) transaction.set(db.collection("publicSignals").doc(publication.id), publication);
+    transaction.set(db.collection("reportHistoryContributions").doc(hash(restaurantId)), {
+      rows: historyRows(overflow ? [] : inputs, new Map([...regions].map(([key,value]) => [key,value.region]))),
+      recent,
+      validUntil: Timestamp.fromMillis(Math.min(now + PRIVACY_TTL, ...[...regions.values()].map(r => r.expiresAt.toMillis()))),
+      updatedAt: FieldValue.serverTimestamp(), overflow,
+    });
     transaction.set(stateRef, {
       restaurantId, publicIds: [...nextIds], reportFingerprint: signature,
       status: overflow ? "capacity_review_required" : verificationFailed ? "verification_retry" : publications.length ? "published" : "below_publication_threshold",

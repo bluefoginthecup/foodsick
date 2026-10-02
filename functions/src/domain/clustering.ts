@@ -60,7 +60,7 @@ function hasGastrointestinalSymptom(report: ClusterableReport) {
   return report.symptoms.some((symptom) => GASTROINTESTINAL.has(symptom));
 }
 
-function isEligible(report: ClusterableReport) {
+export function isEligible(report: ClusterableReport) {
   return ["submitted", "reviewed", "included_in_cluster"].includes(report.status)
     && Boolean(report.ownerUid && report.canonicalRestaurantId)
     && Number.isFinite(Date.parse(report.mealAt))

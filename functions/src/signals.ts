@@ -2,6 +2,16 @@ import { FieldPath, Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { db } from "./firebase.js";
 import { publicSignalView } from "./domain/public-signal.js";
+import { publicHistory, type HistoryRow } from "./domain/report-history.js";
+
+export const getPublicReportHistory = onCall({ region: "asia-northeast3", enforceAppCheck: false, maxInstances: 10 }, async () => {
+  const snapshot = await db.collection("reportHistoryContributions").where("validUntil", ">", new Date()).limit(1001).get();
+  if (snapshot.size > 1000 || snapshot.docs.some(d => d.get("overflow") === true)) throw new HttpsError("resource-exhausted", "전체 신고 이력을 집계하지 못했습니다. 잠시 후 다시 확인해주세요.");
+  const rows: HistoryRow[] = snapshot.docs.flatMap(d => d.get("rows") ?? []);
+  if (rows.length > 20000) throw new HttpsError("resource-exhausted", "조회할 신고 이력이 너무 많습니다.");
+  const oldest = new Date(Date.now() - 365 * 86400000 + 9 * 3600000).toISOString().slice(0,10);
+  return { signals: publicHistory(rows.filter(r => r.date >= oldest)), recent: snapshot.docs.flatMap(d => (d.get("recent") ?? []).flatMap((r: Record<string,unknown>) => { const view = publicSignalView(r); return view ? [view] : []; })) };
+});
 
 export const getPublicSignals = onCall({ region: "asia-northeast3", enforceAppCheck: false, maxInstances: 10 }, async (request) => {
   const cursor = request.data?.cursor;
