@@ -814,3 +814,19 @@ button { color: inherit; }
 .admin-review-toolbar { display: flex; align-items: center; justify-content: space-between; }
 .full-report .review-note textarea { display: block; width: 100%; min-height: 80px; border: 1px solid #aaa; padding: 12px; border-radius: 8px; margin: 8px 0 16px; }
 @media (max-width: 600px) { .admin-detail-grid { grid-template-columns: 1fr; } }
+.account-page { padding-bottom: 64px; }
+.account-page > h1 { font-size: 40px; margin: 28px 0 12px; }
+.account-card { background: #fffdf8; border: 1px solid #ddd8cc; border-radius: 20px; padding: 24px; margin-top: 22px; }
+.account-card h2 { font-size: 21px; margin-bottom: 20px; }
+.account-card label { display: block; font-weight: 700; margin-bottom: 10px; }
+.account-card label small { color: #65706b; font-weight: 400; }
+.account-card input { width: 100%; border: 1px solid #b4bdb6; border-radius: 12px; padding: 14px; background: white; }
+.account-card p { line-height: 1.7; font-size: 14px; margin: 12px 0; }
+.account-card dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
+.account-card dt { color: #65706b; }
+.account-card dd { margin: 0; }
+.account-card details { margin: 24px 0; }
+.account-card summary { cursor: pointer; }
+.account-uid { overflow-wrap: anywhere; }
+.account-links { display: grid; gap: 14px; }
+.account-card :focus-visible { outline: 3px solid #246b58; outline-offset: 3px; }

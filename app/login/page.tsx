@@ -48,10 +48,11 @@ export default function LoginPage() {
     setError("");
     setWorking(true);
     try {
-      if (firebaseMode) await loginWithKakao("/report");
+      const returnTo = safeReturnTo(searchParams.get("returnTo"));
+      if (firebaseMode) await loginWithKakao(returnTo);
       else {
         loginForDemo();
-        window.location.assign("/report");
+        window.location.assign(returnTo);
       }
     } catch {
       setError("카카오 로그인을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.");
@@ -82,6 +83,7 @@ export default function LoginPage() {
           <div className="logged-in-panel">
             <strong>{user.mode === "firebase" ? "카카오 계정으로 로그인되어 있어요" : "체험 계정으로 로그인되어 있어요"}</strong>
             <NativeLink className="primary-button" href="/report">증상 신고하기</NativeLink>
+            <NativeLink className="secondary-button" href="/account">내 계정·정보 수정</NativeLink>
             <button className="secondary-button" onClick={() => void logout()} type="button">로그아웃</button>
           </div>
         ) : (

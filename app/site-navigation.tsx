@@ -14,6 +14,7 @@ const menuGroups = [
       { href: "/#signals", label: "증상 신호 지도" },
       { href: "/report", label: "증상 신고하기" },
       { href: "/my-reports", label: "내 신고" },
+      { href: "/account", label: "내 계정·정보 수정" },
     ],
   },
   {

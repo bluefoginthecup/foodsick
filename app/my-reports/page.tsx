@@ -46,6 +46,7 @@ export default function MyReportsPage() {
       <section className="my-reports-heading">
         <p className="eyebrow">나만 볼 수 있어요</p>
         <h1>내 신고</h1>
+        <NativeLink className="text-link" href="/account">내 계정·정보 수정 →</NativeLink>
         <p>{firebaseMode ? "카카오 계정으로 로그인한 본인 신고만 표시됩니다." : "체험 모드에서는 이 브라우저 탭을 닫거나 새로고침하면 신고가 사라집니다."}</p>
       </section>
 
