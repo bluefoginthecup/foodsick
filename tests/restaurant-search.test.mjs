@@ -28,3 +28,14 @@ test("searches live Kakao places and keeps food results in the selected region",
   assert.equal(authorization, "KakaoAK secret");
   assert.equal(new URL(requestedUrl).searchParams.get("query"), "경기도 용인시 기흥구 영덕갈비");
 });
+
+test("search without a selected region preserves coordinates for automatic region lookup", async () => {
+  let query;
+  const results = await fetchKakaoRestaurants("부산 식당", "", "test", async (url) => {
+    query = url.searchParams.get("query");
+    return Response.json({ documents: [{ id: "1", place_name: "부산 식당", category_group_code: "FD6", category_name: "음식점 > 한식", address_name: "부산 해운대구", x: "129.1", y: "35.1" }] });
+  });
+  assert.equal(query, "부산 식당");
+  assert.equal(results[0].x, "129.1");
+  assert.equal(results[0].y, "35.1");
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   COMPANION_GENDERS,
@@ -11,9 +11,10 @@ import {
 } from "../contracts";
 import { useAuth } from "../auth/auth-context";
 import { NativeLink } from "../native-link";
-import { findRestaurantCandidates, type RestaurantCandidate } from "./restaurant-matcher";
+import { findRestaurantCandidates, findRestaurantRegion, type RestaurantCandidate } from "./restaurant-matcher";
 import { useReports, type StoredReport } from "../reports/report-store";
 import { ReportRegionSelect } from "./region-select";
+import { reportFieldId, serverReportIssue, validateReportDraft, type ReportIssue } from "./validation";
 
 const symptomOptions = ["설사", "구토", "복통", "발열", "오한", "혈변", "두통", "근육통"];
 const steps = ["식사", "증상", "동행", "의료·확인"];
@@ -85,15 +86,19 @@ function ToggleGroup({
   options,
   values,
   onChange,
+  fieldProps,
+  error,
 }: {
   label: string;
   options: string[];
   values: string[];
   onChange: (values: string[]) => void;
+  fieldProps?: React.FieldsetHTMLAttributes<HTMLFieldSetElement>;
+  error?: React.ReactNode;
 }) {
   return (
-    <fieldset className="field-block">
-      <legend>{label}</legend>
+    <fieldset className="field-block" {...fieldProps}>
+      <legend>{label}{fieldProps && <span className="required-mark" aria-hidden="true">필수</span>}</legend>
       <div className="toggle-grid">
         {options.map((option) => {
           const selected = values.includes(option);
@@ -110,6 +115,7 @@ function ToggleGroup({
           );
         })}
       </div>
+      {error}
     </fieldset>
   );
 }
@@ -152,9 +158,53 @@ export function ReportWizard() {
   const [completedReport, setCompletedReport] = useState<StoredReport | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [stepError, setStepError] = useState("");
+  const [attemptedSteps, setAttemptedSteps] = useState<number[]>([]);
+  const [serverIssue, setServerIssue] = useState<ReportIssue | null>(null);
+  const [focusRequest, setFocusRequest] = useState<{ field: string; step: number } | null>(null);
+  const validationErrors = useMemo(() => validateReportDraft(draft, consented), [draft, consented]);
+  const visibleErrors = [...validationErrors.filter((issue) => attemptedSteps.includes(issue.step)), ...(serverIssue ? [serverIssue] : [])];
+  const fieldError = (field: string) => visibleErrors.find((issue) => issue.field === field);
+  const fieldAttrs = (field: string, label?: string) => ({ id: reportFieldId(field), "aria-label": label, "aria-invalid": !!fieldError(field), "aria-describedby": fieldError(field) ? `error-${field}` : undefined });
+  const fieldMessage = (field: string) => fieldError(field) ? <span className="field-error" id={`error-${field}`}>{fieldError(field)!.message}</span> : null;
+  const jumpToError = (issue: ReportIssue) => {
+    let field = issue.field;
+    if (["city", "district"].includes(field) && !draft.province) field = "province";
+    else if (["district"].includes(field) && !draft.city) field = "city";
+
+    setStep(issue.step);
+    setFocusRequest({ field, step: issue.step });
+  };
+  useEffect(() => {
+    if (!focusRequest || focusRequest.step !== step) return;
+    const frame = requestAnimationFrame(() => {
+      const target = document.getElementById(focusRequest.field === "summary" ? "report-error-summary" : reportFieldId(focusRequest.field));
+      target?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
+      (target?.matches("fieldset") ? target.querySelector<HTMLButtonElement>("button") : target)?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusRequest, step]);
+  const [manualRestaurant, setManualRestaurant] = useState(false);
+  const [regionStatus, setRegionStatus] = useState("");
+  const regionRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => regionRequest.current?.abort(), []);
+  const selectRestaurant = async (candidate: RestaurantCandidate) => {
+    regionRequest.current?.abort();
+    const controller = new AbortController();
+    regionRequest.current = controller;
+    setRegionStatus("음식점 주소에서 지역을 확인하는 중입니다.");
+    setDraft((current) => ({ ...current, province: "", city: "", district: "", restaurantInternalId: candidate.internalId, restaurantDisplayInput: candidate.name, foodCategory: candidate.category as ReportDraft["foodCategory"], foodCategoryDetail: candidate.category === "기타" ? candidate.categoryLabel : "" }));
+    try {
+      const region = await findRestaurantRegion(candidate, controller.signal);
+      if (!controller.signal.aborted) {
+        setDraft((current) => current.restaurantInternalId === candidate.internalId ? { ...current, ...region } : current);
+        setRegionStatus("음식점 주소로 지역을 자동 입력했어요. 아래에서 확인해주세요.");
+      }
+    } catch {
+      if (!controller.signal.aborted) setRegionStatus("지역을 자동 입력하지 못했습니다. 아래 목록에서 선택해주세요.");
+    }
+  };
   const [searchAttempt, setSearchAttempt] = useState(0);
-  const restaurantSearchKey = useMemo(() => [draft.restaurantDisplayInput.trim(), draft.province, draft.city, draft.district].join("|"), [draft.city, draft.district, draft.province, draft.restaurantDisplayInput]);
+  const restaurantSearchKey = draft.restaurantDisplayInput.trim();
   const [restaurantSearch, setRestaurantSearch] = useState<{ key: string; status: "idle" | "loading" | "loaded" | "error"; candidates: RestaurantCandidate[]; message: string }>({
     key: "",
     status: "idle",
@@ -169,14 +219,11 @@ export function ReportWizard() {
 
   useEffect(() => {
     const query = draft.restaurantDisplayInput.trim();
-    if (query.length < 2 || draft.restaurantInternalId || !draft.province || !draft.city || !draft.district) return;
+    if (query.length < 2 || draft.restaurantInternalId || manualRestaurant) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       setRestaurantSearch({ key: restaurantSearchKey, status: "loading", candidates: [], message: "음식점을 검색하는 중입니다." });
-      // Search within the selected city/district: Kakao street addresses use legal
-      // dong names, which may differ from the administrative dong selected above.
-      const region = [...new Set([draft.province, draft.city].filter(Boolean))].join(" ");
-      void findRestaurantCandidates(query, region, controller.signal)
+      void findRestaurantCandidates(query, "", controller.signal)
         .then((results) => {
           if (!controller.signal.aborted) setRestaurantSearch({ key: restaurantSearchKey, status: "loaded", candidates: results, message: results.length ? "" : "검색 결과가 없습니다." });
         })
@@ -188,7 +235,7 @@ export function ReportWizard() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [draft.city, draft.district, draft.province, draft.restaurantDisplayInput, draft.restaurantInternalId, restaurantSearchKey, searchAttempt]);
+  }, [draft.restaurantDisplayInput, draft.restaurantInternalId, restaurantSearchKey, searchAttempt, manualRestaurant]);
 
   /* The report store is restored after hydration, so edit data must be applied afterwards. */
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -197,6 +244,7 @@ export function ReportWizard() {
     if (!requestedReport || requestedReport.ownerUid !== user.uid) return;
     setLoadedEditId(requestedEditId);
     setDraft(normalizedDraft(structuredClone(requestedReport.draft)));
+    setManualRestaurant(requestedReport.draft.restaurantInternalId.startsWith("manual_"));
     setEditingId(requestedReport.id);
     setStep(3);
     setConsented(false);
@@ -207,15 +255,15 @@ export function ReportWizard() {
 
   const patch = <K extends keyof ReportDraft>(key: K, value: ReportDraft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
-    setStepError("");
+    setServerIssue(null);
   };
 
   const nextStep = () => {
-    if (step === 0 && (!draft.mealDate || !draft.mealTime || !draft.province || !draft.city || !draft.district || !draft.restaurantInternalId || !draft.foodCategory || !draft.serviceMode)) {
-      setStepError("식사 날짜·시간, 지역, 음식점, 음식 유형과 이용 방식을 선택해주세요.");
+    setAttemptedSteps((current) => [...new Set([...current, step])]);
+    if (validationErrors.some((issue) => issue.step === step)) {
+      setFocusRequest({ field: "summary", step });
       return;
     }
-    setStepError("");
     setStep((current) => Math.min(steps.length - 1, current + 1));
   };
 
@@ -236,6 +284,11 @@ export function ReportWizard() {
 
   const submitReport = async () => {
     if (!user || submitting) return;
+    setAttemptedSteps([0, 1, 2, 3]);
+    if (validationErrors.length) {
+      setFocusRequest({ field: "summary", step });
+      return;
+    }
     setSubmitting(true);
     setSubmitError("");
     try {
@@ -255,6 +308,10 @@ export function ReportWizard() {
       }
       setCompletedReport(result.report);
     } catch (error) {
+      const field = (error as { details?: { field?: string } })?.details?.field;
+      const issue = field ? serverReportIssue(field) : null;
+      setServerIssue(issue);
+      if (issue) setFocusRequest({ field: "summary", step });
       setSubmitError(error instanceof Error ? error.message : "신고를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
       setSubmitting(false);
@@ -349,7 +406,12 @@ export function ReportWizard() {
         ))}
       </ol>
 
-      <form className="report-form" onSubmit={(event) => event.preventDefault()}>
+      <form className="report-form" noValidate onSubmit={(event) => event.preventDefault()}>
+        {visibleErrors.length > 0 && <div className="report-error-summary" id="report-error-summary" role="alert" tabIndex={-1}>
+          <strong>확인이 필요한 항목이 {visibleErrors.length}개 있어요</strong>
+          <p>아래 메시지를 누르면 해당 입력 항목으로 이동합니다.</p>
+          <ul>{visibleErrors.map((issue, index) => <li key={`${issue.field}-${index}`}><button type="button" onClick={() => jumpToError(issue)}>{issue.message}</button></li>)}</ul>
+        </div>}
         {duplicateNotice && (
           <div className="duplicate-banner" role="alert">
             <strong>이미 같은 식사 신고가 있어요.</strong>
@@ -362,46 +424,42 @@ export function ReportWizard() {
             <h1 id="meal-title">언제, 어디서<br />드셨나요?</h1>
             <p className="step-copy">음식점 이름과 정확한 위치는 내부 매칭에만 사용하고 공개하지 않습니다.</p>
             <div className="field-row">
-              <label>식사 날짜<input required type="date" value={draft.mealDate} onChange={(e) => patch("mealDate", e.target.value)} /></label>
-              <label>식사 시간<input required type="time" value={draft.mealTime} onChange={(e) => patch("mealTime", e.target.value)} /></label>
+              <label>식사 날짜<span className="required-mark" aria-hidden="true">필수</span><input {...fieldAttrs("mealDate", "식사 날짜")}  required type="date" value={draft.mealDate} onInput={(e) => patch("mealDate", e.currentTarget.value)} onChange={(e) => patch("mealDate", e.target.value)} />{fieldMessage("mealDate")}</label>
+              <label>식사 시간<span className="required-mark" aria-hidden="true">필수</span><input {...fieldAttrs("mealTime", "식사 시간")}  required type="time" value={draft.mealTime} onInput={(e) => patch("mealTime", e.currentTarget.value)} onChange={(e) => patch("mealTime", e.target.value)} />{fieldMessage("mealTime")}</label>
             </div>
-            <ReportRegionSelect value={draft} onChange={(region) => setDraft((current) => ({ ...current, ...region, restaurantInternalId: "", restaurantDisplayInput: "" }))} />
+
 
             <div className="restaurant-search">
-              <label htmlFor="restaurant-query">음식점 찾기</label>
-              <p className="restaurant-search-help" id="restaurant-search-help">{draft.district ? "선택한 시·군·구에서 검색합니다. 상호를 두 글자 이상 입력하고 결과에서 음식점을 선택해주세요." : "위에서 식사한 지역을 먼저 선택해주세요."}</p>
+              <label htmlFor="restaurant-query">{manualRestaurant ? "음식점 상호명 직접 입력" : "음식점 먼저 검색"}<span className="required-mark" aria-hidden="true">필수</span></label>
+              <p className="restaurant-search-help" id="restaurant-search-help">{manualRestaurant ? "식사한 지역과 상호명을 직접 입력해주세요." : "지역 선택 없이 음식점 이름부터 검색하세요. 지점명이나 지역명을 함께 입력하면 찾기 쉬워요."}</p>
               <div className="restaurant-search-control">
                 <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" strokeWidth="2" /><path d="m15 15 6 6" stroke="currentColor" strokeWidth="2" /></svg>
                 <input
-                  id="restaurant-query"
-                  aria-describedby="restaurant-search-help"
+                  {...fieldAttrs("restaurantInternalId", "음식점 찾기")}
+                  aria-describedby={`restaurant-search-help${fieldError("restaurantInternalId") ? " error-restaurantInternalId" : ""}`}
                   aria-controls="restaurant-results"
-                  disabled={!draft.province || !draft.city || !draft.district}
                   autoComplete="off"
-                  placeholder="음식점 이름을 검색하세요"
+                  placeholder={manualRestaurant ? "음식점 상호명을 입력하세요" : "예: 교동면옥 용인영덕점"}
                   type="search"
                   value={draft.restaurantDisplayInput}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); patch("restaurantInternalId", ""); setSearchAttempt((n) => n + 1); } }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !manualRestaurant) { e.preventDefault(); patch("restaurantInternalId", ""); setSearchAttempt((n) => n + 1); } }}
                   onChange={(e) => {
+                    regionRequest.current?.abort();
+                    setRegionStatus("");
                     patch("restaurantDisplayInput", e.target.value);
-                    patch("restaurantInternalId", "");
+                    patch("restaurantInternalId", manualRestaurant ? (draft.restaurantInternalId || `manual_${Date.now()}`) : "");
                   }}
                 />
-                <button type="button" disabled={!draft.district || draft.restaurantDisplayInput.trim().length < 2} onClick={() => { patch("restaurantInternalId", ""); setSearchAttempt((n) => n + 1); }}>검색</button>
+                {!manualRestaurant && <button type="button" disabled={draft.restaurantDisplayInput.trim().length < 2} onClick={() => { patch("restaurantInternalId", ""); setSearchAttempt((n) => n + 1); }}>검색</button>}
               </div>
-              {candidates.length > 0 && !draft.restaurantInternalId && (
+              {fieldMessage("restaurantInternalId")}
+              {!manualRestaurant && candidates.length > 0 && !draft.restaurantInternalId && (
                 <div className="candidate-list" id="restaurant-results" role="listbox" aria-label="음식점 검색 결과">
                   {candidates.map((candidate) => (
                     <button
                       aria-selected="false"
                       key={candidate.internalId}
-                      onClick={() => setDraft((current) => ({
-                        ...current,
-                        restaurantInternalId: candidate.internalId,
-                        restaurantDisplayInput: candidate.name,
-                        foodCategory: candidate.category as ReportDraft["foodCategory"],
-                        foodCategoryDetail: candidate.category === "기타" ? candidate.categoryLabel : "",
-                      }))}
+                      onClick={() => void selectRestaurant(candidate)}
                       role="option"
                       type="button"
                     >
@@ -412,27 +470,34 @@ export function ReportWizard() {
                 </div>
               )}
               {draft.restaurantInternalId && <p className="matched-note">✓ {draft.restaurantInternalId.startsWith("manual_") ? "직접 입력됨 · 장소 확인 후 집계됩니다" : "음식점 선택 완료 · 외부에는 공개되지 않아요"}</p>}
-              {!draft.restaurantInternalId && activeRestaurantSearch.status === "loading" && <p className="restaurant-search-status">카카오 장소에서 음식점을 검색하는 중입니다.</p>}
-              {!draft.restaurantInternalId && activeRestaurantSearch.status === "error" && <p className="restaurant-search-status error">{activeRestaurantSearch.message}</p>}
-              {!draft.restaurantInternalId && activeRestaurantSearch.status === "loaded" && candidates.length === 0 && <p className="restaurant-search-status" role="status">검색 결과가 없습니다. 지역이나 상호명을 다시 확인해주세요.</p>}
-              {!draft.restaurantInternalId && draft.district && draft.restaurantDisplayInput.trim().length >= 2 && activeRestaurantSearch.status === "loaded" && (
-                <button className="manual-place" onClick={() => patch("restaurantInternalId", `manual_${Date.now()}`)} type="button">목록에 없으면 이 상호명으로 직접 입력</button>
-              )}
+              {!manualRestaurant && !draft.restaurantInternalId && activeRestaurantSearch.status === "loading" && <p className="restaurant-search-status">카카오 장소에서 음식점을 검색하는 중입니다.</p>}
+              {!manualRestaurant && !draft.restaurantInternalId && activeRestaurantSearch.status === "error" && <p className="restaurant-search-status error">{activeRestaurantSearch.message}</p>}
+              {!manualRestaurant && !draft.restaurantInternalId && activeRestaurantSearch.status === "loaded" && candidates.length === 0 && <p className="restaurant-search-status" role="status">검색 결과가 없습니다. 지역이나 상호명을 다시 확인해주세요.</p>}
+              <button className="manual-place" type="button" onClick={() => {
+                regionRequest.current?.abort(); setRegionStatus("");
+                setManualRestaurant(!manualRestaurant);
+                setDraft((current) => ({ ...current, restaurantInternalId: manualRestaurant ? "" : `manual_${Date.now()}` }));
+              }}>{manualRestaurant ? "음식점 검색으로 돌아가기" : "검색에 없나요? 지역·상호명 직접 입력"}</button>
             </div>
+            {regionStatus && <p className="matched-note" role="status">{regionStatus}</p>}
+            <ReportRegionSelect value={draft} errors={visibleErrors} onChange={(region) => {
+              regionRequest.current?.abort(); setRegionStatus("");
+              setDraft((current) => ({ ...current, ...region }));
+            }} />
 
-            <label>음식 유형
-              <select value={draft.foodCategory} onChange={(e) => {
+            <label>음식 유형<span className="required-mark" aria-hidden="true">필수</span>
+              <select {...fieldAttrs("foodCategory", "음식 유형")}  value={draft.foodCategory} onChange={(e) => {
                 patch("foodCategory", e.target.value as ReportDraft["foodCategory"]);
                 if (e.target.value !== "기타") patch("foodCategoryDetail", "");
               }}>
                 <option value="">선택해주세요</option>
                 {FOOD_CATEGORIES.map((item) => <option key={item}>{item}</option>)}
               </select>
-            </label>
-            {draft.foodCategory === "기타" && <label>음식 유형 직접 입력<input maxLength={50} placeholder="예: 밀키트, 푸드트럭" value={draft.foodCategoryDetail} onChange={(e) => patch("foodCategoryDetail", e.target.value)} /></label>}
-            <label>먹은 메뉴<input maxLength={100} placeholder="예: 물냉면, 만두" value={draft.menu} onChange={(e) => patch("menu", e.target.value)} /></label>
-            <fieldset className="field-block">
-              <legend>이용 방식</legend>
+            {fieldMessage("foodCategory")}</label>
+            {draft.foodCategory === "기타" && <label>음식 유형 직접 입력<span className="required-mark" aria-hidden="true">필수</span><input {...fieldAttrs("foodCategoryDetail", "음식 유형 직접 입력")}  maxLength={50} placeholder="예: 밀키트, 푸드트럭" value={draft.foodCategoryDetail} onChange={(e) => patch("foodCategoryDetail", e.target.value)} />{fieldMessage("foodCategoryDetail")}</label>}
+            <label>먹은 메뉴<input {...fieldAttrs("menu", "먹은 메뉴")}  maxLength={100} placeholder="예: 물냉면, 만두" value={draft.menu} onChange={(e) => patch("menu", e.target.value)} />{fieldMessage("menu")}</label>
+            <fieldset className="field-block" {...fieldAttrs("serviceMode", "이용 방식")} tabIndex={-1}>
+              <legend>이용 방식 <span className="required-mark" aria-hidden="true">필수</span></legend>
               <div className="service-mode">
                 {(["dine_in", "delivery", "takeout"] as const).map((mode) => (
                   <button aria-pressed={draft.serviceMode === mode} className={draft.serviceMode === mode ? "selected" : ""} key={mode} onClick={() => patch("serviceMode", mode)} type="button">
@@ -440,6 +505,7 @@ export function ReportWizard() {
                   </button>
                 ))}
               </div>
+              {fieldMessage("serviceMode")}
             </fieldset>
           </section>
         )}
@@ -449,14 +515,14 @@ export function ReportWizard() {
             <p className="eyebrow">2 · 증상</p>
             <h1 id="symptom-title">어떤 증상이<br />있었나요?</h1>
             <p className="step-copy">이 설문은 식중독 여부를 진단하지 않습니다.</p>
-            <ToggleGroup label="해당하는 증상을 모두 선택해주세요" options={symptomOptions} values={draft.symptoms} onChange={(value) => patch("symptoms", value)} />
+            <ToggleGroup fieldProps={fieldAttrs("symptoms", "증상 선택")} error={fieldMessage("symptoms")} label="해당하는 증상을 모두 선택해주세요" options={symptomOptions} values={draft.symptoms} onChange={(value) => patch("symptoms", value)} />
             {draft.symptoms.includes("설사") && (
-              <label>하루 설사 횟수<input min={0} max={50} type="number" value={draft.diarrheaCount} onChange={(e) => patch("diarrheaCount", Number(e.target.value))} /></label>
+              <label>하루 설사 횟수<input {...fieldAttrs("diarrheaCount", "하루 설사 횟수")}  min={0} max={50} type="number" value={draft.diarrheaCount} onChange={(e) => patch("diarrheaCount", Number(e.target.value))} />{fieldMessage("diarrheaCount")}</label>
             )}
-            <label>기타 증상<textarea maxLength={300} placeholder="추가 증상이 있다면 적어주세요" value={draft.otherSymptom} onChange={(e) => patch("otherSymptom", e.target.value)} /></label>
+            <label>기타 증상<textarea {...fieldAttrs("otherSymptom", "기타 증상")}  maxLength={300} placeholder="추가 증상이 있다면 적어주세요" value={draft.otherSymptom} onChange={(e) => patch("otherSymptom", e.target.value)} />{fieldMessage("otherSymptom")}</label>
             <div className="field-row">
-              <label>최초 증상 날짜<input type="date" value={draft.onsetDate} onChange={(e) => patch("onsetDate", e.target.value)} /></label>
-              <label>최초 증상 시간<input type="time" value={draft.onsetTime} onChange={(e) => patch("onsetTime", e.target.value)} /></label>
+              <label>최초 증상 날짜<span className="required-mark" aria-hidden="true">필수</span><input {...fieldAttrs("onsetDate", "최초 증상 날짜")}  type="date" value={draft.onsetDate} onInput={(e) => patch("onsetDate", e.currentTarget.value)} onChange={(e) => patch("onsetDate", e.target.value)} />{fieldMessage("onsetDate")}</label>
+              <label>최초 증상 시간<span className="required-mark" aria-hidden="true">필수</span><input {...fieldAttrs("onsetTime", "최초 증상 시간")}  type="time" value={draft.onsetTime} onInput={(e) => patch("onsetTime", e.currentTarget.value)} onChange={(e) => patch("onsetTime", e.target.value)} />{fieldMessage("onsetTime")}</label>
             </div>
             <div className={`incubation-card ${incubation ? "calculated" : ""}`}>
               <span>계산된 잠복시간</span>
@@ -474,7 +540,7 @@ export function ReportWizard() {
             <h1 id="party-title">같이 드신 분도<br />아팠나요?</h1>
             <p className="step-copy">동행 증상자는 여러 명이어도 독립 신고 1건과 분리해 집계합니다.</p>
             <div className="field-row">
-              <label>나를 포함한 총 인원<input min={1} max={100} type="number" value={draft.partyTotal} onChange={(e) => {
+              <label>나를 포함한 총 인원<span className="required-mark" aria-hidden="true">필수</span><input {...fieldAttrs("partyTotal", "나를 포함한 총 인원")}  min={1} max={100} type="number" value={draft.partyTotal} onChange={(e) => {
                 const total = Math.min(100, Math.max(1, Number(e.target.value)));
                 setDraft((current) => ({
                   ...current,
@@ -482,8 +548,8 @@ export function ReportWizard() {
                   partySymptomatic: Math.min(current.partySymptomatic, total - 1),
                   companions: current.companions.slice(0, Math.min(current.partySymptomatic, total - 1)),
                 }));
-              }} /></label>
-              <label>나 외 증상자<input min={0} max={Math.max(0, draft.partyTotal - 1)} type="number" value={draft.partySymptomatic} onChange={(e) => setCompanionCount(Number(e.target.value))} /></label>
+              }} />{fieldMessage("partyTotal")}</label>
+              <label>나 외 증상자<span className="required-mark" aria-hidden="true">필수</span><input {...fieldAttrs("partySymptomatic", "나 외 증상자")}  min={0} max={Math.max(0, draft.partyTotal - 1)} type="number" value={draft.partySymptomatic} onChange={(e) => setCompanionCount(Number(e.target.value))} />{fieldMessage("partySymptomatic")}</label>
             </div>
             <div className="party-summary">
               <div><span>독립 신고</span><strong>1건</strong></div>
@@ -498,7 +564,7 @@ export function ReportWizard() {
                   <article className="companion-card" key={index}>
                     <div className="companion-card-heading"><strong>동행자 {index + 1}</strong><span>증상자</span></div>
                     <div className="field-row">
-                      <label>나이 (선택)<input inputMode="numeric" max={120} min={0} placeholder="만 나이" type="number" value={companion.age} onChange={(e) => patchCompanion(index, "age", e.target.value === "" ? "" : Number(e.target.value))} /></label>
+                      <label>나이 (선택)<input {...fieldAttrs(`companion-age-${index}`, `동행자 ${index + 1} 나이`)} inputMode="numeric" max={120} min={0} placeholder="만 나이" type="number" value={companion.age} onChange={(e) => patchCompanion(index, "age", e.target.value === "" ? "" : Number(e.target.value))} />{fieldMessage(`companion-age-${index}`)}</label>
                       <label>성별 (선택)<select value={companion.gender} onChange={(e) => patchCompanion(index, "gender", e.target.value as CompanionDraft["gender"])}><option value="">선택하지 않음</option>{COMPANION_GENDERS.map((gender) => <option key={gender} value={gender}>{genderLabels[gender]}</option>)}</select></label>
                     </div>
                     <ToggleGroup label={`동행자 ${index + 1} 증상`} options={symptomOptions} values={companion.symptoms} onChange={(value) => patchCompanion(index, "symptoms", value)} />
@@ -537,10 +603,11 @@ export function ReportWizard() {
               <div><span>잠복시간</span><strong>{incubation ?? "계산 전"}</strong></div>
               <div><span>인원 집계</span><strong>독립 1건 · 동행 {draft.partySymptomatic}명<small>개별정보 {draft.companions.length}명 입력</small></strong></div>
             </div>
-            <label className="consent-check"><input checked={consented} onChange={(event) => setConsented(event.target.checked)} type="checkbox" /> <span>건강 관련 정보가 민감정보임을 확인했으며, 신고 분석 목적으로 처리하는 데 동의합니다. <small>실제 운영 전 동의문과 보유기간을 법률 검토합니다.</small></span></label>
+            <label className="consent-check"><input {...fieldAttrs("consent", "건강정보 처리 동의")} checked={consented} onChange={(event) => setConsented(event.target.checked)} type="checkbox" /> <span>건강 관련 정보가 민감정보임을 확인했으며, 신고 분석 목적으로 처리하는 데 동의합니다. <small>실제 운영 전 동의문과 보유기간을 법률 검토합니다.</small></span></label>
+            {fieldMessage("consent")}
             <button
               className="submit-preview"
-              disabled={submitting || !consented || !draft.province || !draft.city || !draft.district || !draft.restaurantInternalId || !draft.mealDate || !draft.mealTime || draft.symptoms.length === 0}
+              disabled={submitting}
               onClick={() => void submitReport()}
               type="button"
             >
@@ -554,7 +621,6 @@ export function ReportWizard() {
           <button className="secondary-button" disabled={step === 0} onClick={() => setStep((current) => Math.max(0, current - 1))} type="button">이전</button>
           {step < steps.length - 1 && <button className="primary-button" onClick={nextStep} type="button">다음</button>}
         </div>
-        {stepError && <p className="form-error" role="alert">{stepError}</p>}
       </form>
     </main>
   );

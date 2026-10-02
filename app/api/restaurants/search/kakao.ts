@@ -10,6 +10,8 @@ export type KakaoRestaurant = {
   category_group_code: string;
   category_name: string;
   place_url: string;
+  x?: string;
+  y?: string;
 };
 
 type KakaoSearchResponse = { documents?: KakaoRestaurant[] };
@@ -55,5 +57,7 @@ export async function fetchKakaoRestaurants(
       categoryLabel: place.category_name.split(" > ").slice(-2).join(" · "),
       phone: place.phone,
       placeUrl: place.place_url,
+      x: place.x ?? "",
+      y: place.y ?? "",
     }));
 }

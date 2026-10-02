@@ -784,3 +784,33 @@ button { color: inherit; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+/* Required report fields and actionable validation feedback. */
+.report-form label:has(> .required-mark) { position: relative; }
+.report-form label > .required-mark { position: absolute; right: 0; top: 0; }
+.required-mark { color: #a43223; font-size: 11px; font-weight: 800; margin-left: 8px; }
+.field-error { display: block; color: #a12418; font-size: 13px; font-weight: 600; line-height: 1.6; margin-top: 5px; }
+.report-form input[aria-invalid="true"], .report-form select[aria-invalid="true"], .report-form textarea[aria-invalid="true"] { border: 2px solid #bd3b2a; background: #fff8f5; }
+.report-form fieldset[aria-invalid="true"] { border: 2px solid #bd3b2a; padding: 12px; border-radius: 12px; }
+.restaurant-search-control:has([aria-invalid="true"]) { border-color: #bd3b2a; }
+.report-error-summary { padding: 20px; border: 2px solid #bd3b2a; border-radius: 16px; background: #fff5ef; color: #762519; margin-bottom: 24px; scroll-margin-top: 90px; }
+.report-error-summary strong { font-size: 18px; }
+.report-error-summary p { font-size: 13px; margin: 8px 0; }
+.report-error-summary ul { padding-left: 20px; }
+.report-error-summary button { text-align: left; color: #852619; text-decoration: underline; text-underline-offset: 3px; padding: 6px 0; background: none; border: 0; line-height: 1.5; cursor: pointer; }
+.report-form :focus-visible { outline: 3px solid #246b58; outline-offset: 4px; }
+.admin-report-card.full-report { display: block; }
+.full-report > details { width: 100%; }
+.full-report summary { cursor: pointer; }
+.full-report > details > summary { padding: 8px 0; }
+.full-report > details > summary > strong { display: inline-block; margin: 0 12px; font-size: 19px; }
+.full-report > details > summary > b { display: block; color: #246b58; margin-top: 12px; font-size: 14px; text-decoration: underline; }
+.admin-report-details { margin: 20px 0; border-top: 1px solid #ddd; }
+.admin-report-details h3 { margin: 24px 0 14px; }
+.admin-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.admin-detail-grid > div { background: #f7f5ef; border-radius: 8px; padding: 12px; min-width: 0; }
+.admin-detail-grid dt { color: #64665f; font-size: 12px; margin-bottom: 6px; }
+.admin-detail-grid dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.admin-companion-detail { border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin: 12px 0; }
+.admin-review-toolbar { display: flex; align-items: center; justify-content: space-between; }
+.full-report .review-note textarea { display: block; width: 100%; min-height: 80px; border: 1px solid #aaa; padding: 12px; border-radius: 8px; margin: 8px 0 16px; }
+@media (max-width: 600px) { .admin-detail-grid { grid-template-columns: 1fr; } }

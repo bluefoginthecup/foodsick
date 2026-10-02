@@ -43,6 +43,12 @@ export async function getFirebaseReports() {
   return (await call({})).data.reports;
 }
 
+export type AdminReport = Omit<FirebaseStoredReport, "draft"> & { draft: ReportDraft | null; sensitiveDataConsentVersion?: string };
+export async function getFirebaseAdminReports(cursor?: string) {
+  const call = httpsCallable<{ cursor?: string }, { reports: AdminReport[]; nextCursor: string | null }>(functionsClient(), "getAdminReports");
+  return (await call(cursor ? { cursor } : {})).data;
+}
+
 export async function getFirebasePublicSignals() {
   const call = httpsCallable<{ cursor?: SignalCursor }, PublicSignalResponse>(functionsClient(), "getPublicSignals");
   const signals = new Map<string, PublicSignal>();
